@@ -4,7 +4,7 @@ import DashboardNavbar from "@/components/dashboard-navbar";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "../../../supabase/client";
+import { createClient } from "../../../../supabase/client";
 import { useEffect, useState } from "react";
 import {
   AlertDialog,

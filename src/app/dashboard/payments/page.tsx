@@ -10,11 +10,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../supabase/server";
 import { deletePaymentAction, markInvoicePaidAction } from "./actions";
 
 export default async function PaymentsPage() {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

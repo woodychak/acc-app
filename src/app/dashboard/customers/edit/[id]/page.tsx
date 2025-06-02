@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../../../supabase/server";
 import { updateCustomerAction } from "../../../../actions";
 
 interface EditCustomerPageProps {
@@ -18,7 +18,7 @@ interface EditCustomerPageProps {
 export default async function EditCustomerPage({
   params,
 }: EditCustomerPageProps) {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

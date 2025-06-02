@@ -17,6 +17,12 @@ const nextConfig = {
         hostname: "static.wixstatic.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "assets-cdn.watchdisneyfe.com",
+        pathname: "/**",
+      },
+      
     ],
   },
   webpack(config) {

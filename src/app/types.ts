@@ -46,10 +46,15 @@ export type Customer = {
 export type CompanyProfile = {
   id: string;
   name: string;
-  address?: string;
-  is_complete?: boolean;
-  bank_account?: string;
-  default_currency?: string; // 確保這行有
+  tel: string; // ✅ 確保有這個欄位
+  address: string;
+  contact: string;
+  payment_terms: string;
+  default_currency: string;
+  prefix: string;
+  bank_account: string;
+  logo_url?: string;
+  is_complete: boolean; // 確保這行有
   // 更多欄位...
 };
 

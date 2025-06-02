@@ -12,10 +12,10 @@ import {
   PieChart,
   Users,
 } from "lucide-react";
-import { createClient } from "../supabase/server";
+import { createServerSupabaseClient } from "../../supabase/server";
 
 export default async function Home() {
-  const supabase = await createClient();
+  const supabase = createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

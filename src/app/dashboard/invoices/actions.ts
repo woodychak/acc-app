@@ -1,11 +1,11 @@
 "use server";
 
-import { createClient } from "../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createInvoiceAction(formData: FormData) {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -99,7 +99,7 @@ export async function createInvoiceAction(formData: FormData) {
 }
 
 export async function generateInvoicePdfAction(invoiceId: string) {
-  const supabase = await createClient({ admin: true });
+  const supabase = createServerSupabaseClient();
 
   // Get invoice with related data
   const { data: invoice, error: invoiceError } = await supabase

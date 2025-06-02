@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Package2, Plus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../supabase/client";
+import { createClient } from "../../../../supabase/client";
 import { useEffect, useState } from "react";
 import { deleteProductAction } from "./actions";
 import {

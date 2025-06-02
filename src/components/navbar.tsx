@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { createClient } from '../supabase/server'
+import { createServerSupabaseClient } from '../../supabase/server'
 import { Button } from './ui/button'
 import { User, UserCircle } from 'lucide-react'
 import UserProfile from './user-profile'
 
 export default async function Navbar() {
-  const supabase = createClient()
+  const supabase = createServerSupabaseClient()
 
   const { data: { user } } = await (await supabase).auth.getUser()
 

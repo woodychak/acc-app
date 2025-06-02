@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Plus, Trash2, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "../../../../../supabase/client";
+import { createClient } from "../../../../../../supabase/client";
 import { useEffect, useState, useRef } from "react";
 import { Invoice, Product, Customer, InvoiceItems } from "@/app/types";
 

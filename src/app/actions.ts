@@ -3,230 +3,139 @@
 import { encodedRedirect } from "@/utils/utils";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "../supabase/server";
+import { createServerSupabaseClient } from "../../supabase/server";
 
-// Function to check if any users exist and create a default admin if none exist
-export const createDefaultAdminIfNeeded = async () => {
-  // This function is now a no-op - we no longer create a default admin user
-  // Each user will have their own company profile with proper data isolation
-  console.log("Default admin creation is disabled");
-  return;
-};
+
+// Function to check if any users exist and create a default admin if none exis
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString() || "";
   const companyName = formData.get("company_name")?.toString() || "";
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
   const origin = headers().get("origin");
 
   if (!email || !password) {
-    return encodedRedirect(
-      "error",
-      "/sign-up",
-      "Email and password are required",
-    );
+    return encodedRedirect("error", "/sign-up", "Email and password are required");
   }
 
-  // Use admin client to bypass RLS for initial user creation
-  const serviceClient = await createClient({ admin: true });
-
-  const {
-    data: { user },
-    error,
-  } = await serviceClient.auth.signUp({
-    email,
-    password,
-    options: {
-      // No email confirmation needed
-      emailRedirectTo: `${origin}/auth/callback`,
-      data: {
-        full_name: fullName,
-        email: email,
-        company_name: companyName,
-      },
-    },
-  });
-
-  if (error) {
-    console.error(error.code + " " + error.message);
-    return encodedRedirect("error", "/sign-up", error.message);
-  }
-
-  if (user) {
-    try {
-      // Automatically confirm the user's email - using a direct approach
-      try {
-        const { error: confirmError } =
-          await serviceClient.auth.admin.updateUserById(user.id, {
-            email_confirm: true,
-          });
-
-        if (confirmError) {
-          console.error("Error confirming user email:", confirmError);
-          // Fallback to RPC method if admin API fails
-          try {
-            const { error: rpcError } = await serviceClient.rpc(
-              "confirm_user",
-              {
-                user_id: user.id,
-              },
-            );
-
-            if (rpcError) {
-              console.error("Error confirming user email with RPC:", rpcError);
-            }
-          } catch (rpcErr) {
-            console.error("Exception in RPC confirm_user:", rpcErr);
-          }
-        }
-      } catch (confirmErr) {
-        console.error("Exception in email confirmation:", confirmErr);
-      }
-
-      // Insert user record - retry if it fails
-      let updateError;
-      try {
-        const { error: insertError } = await serviceClient
-          .from("users")
-          .insert({
-            id: user.id,
-            name: fullName,
-            full_name: fullName,
-            email: email,
-            user_id: user.id,
-            token_identifier: user.id,
-          });
-        updateError = insertError;
-      } catch (err) {
-        console.error("Exception inserting user record:", err);
-        // Try again with a delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const { error: retryError } = await serviceClient.from("users").insert({
-          id: user.id,
-          name: fullName,
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+        data: {
           full_name: fullName,
-          email: email,
-          user_id: user.id,
-          token_identifier: user.id,
-        });
-        updateError = retryError;
-      }
+          email,
+          company_name: companyName,
+        },
+      },
+    });
 
-      if (updateError) {
-        console.error("Error updating user profile:", updateError);
-      }
-
-      // Create company profile for this specific user - using multiple approaches
-      let companyError;
-      try {
-        // First try using the direct RPC function that bypasses RLS
-        try {
-          const { error: rpcError } = await serviceClient.rpc(
-            "create_company_profile",
-            {
-              p_name: companyName || fullName + "'s Company",
-              p_prefix: "INV-",
-              p_default_currency: "HKD",
-              p_user_id: user.id,
-              p_is_complete: false,
-            },
-          );
-
-          if (rpcError) {
-            console.error(
-              "Failed to create company profile via RPC:",
-              rpcError,
-            );
-            // Fall through to next approach
-          } else {
-            // Success! No need to try other approaches
-            console.log(
-              "Successfully created company profile via RPC function",
-            );
-            companyError = null;
-            return redirect("/dashboard/company-profile?setup=required");
-          }
-        } catch (rpcErr) {
-          console.error("Exception in create_company_profile RPC:", rpcErr);
-          // Continue to next approach
-        }
-
-        // Second approach: Try to disable RLS first
-        try {
-          await serviceClient.rpc("disable_rls_for_company_profile");
-          console.log("RLS temporarily disabled for company profile creation");
-        } catch (rpcErr) {
-          console.error("Failed to disable RLS:", rpcErr);
-          // Continue anyway, the insert might still work
-        }
-
-        // Now try the insert
-        const { error: insertError } = await serviceClient
-          .from("company_profile")
-          .insert({
-            name: companyName || fullName + "'s Company",
-            prefix: "INV-",
-            default_currency: "HKD",
-            user_id: user.id, // Link company profile to this specific user
-            created_at: new Date().toISOString(),
-            is_complete: false, // Mark as incomplete to force profile completion on first login
-          });
-
-        if (insertError) {
-          console.error("Failed to insert company profile:", insertError);
-          companyError = insertError;
-        } else {
-          console.log("Successfully created company profile via insert");
-          companyError = null;
-        }
-      } catch (err) {
-        console.error("Exception creating company profile:", err);
-        // Try again with a delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Try one more time with explicit RLS disable
-        try {
-          await serviceClient.rpc("disable_rls_for_company_profile");
-          console.log("RLS temporarily disabled on retry");
-        } catch (rpcErr) {
-          console.error("Failed to disable RLS on retry:", rpcErr);
-        }
-
-        const { error: retryError } = await serviceClient
-          .from("company_profile")
-          .insert({
-            name: companyName || fullName + "'s Company",
-            prefix: "INV-",
-            default_currency: "HKD",
-            user_id: user.id,
-            created_at: new Date().toISOString(),
-            is_complete: false,
-          });
-        companyError = retryError;
-      }
-
-      if (companyError) {
-        console.error("Error creating company profile:", companyError);
-      }
-    } catch (err) {
-      console.error("Error in user profile creation:", err);
+    if (error) {
+      console.error(error.code + " " + error.message);
+      return encodedRedirect("error", "/sign-up", error.message);
     }
+
+    if (!user) {
+      return encodedRedirect(
+        "success",
+        "/sign-in",
+        "Please check your email to confirm your account before signing in."
+      );
+    }
+
+    // Insert user record
+    let updateError;
+    try {
+      const { error: insertError } = await supabase.from("users").insert({
+        id: user.id,
+        name: fullName,
+        full_name: fullName,
+        email,
+        user_id: user.id,
+        token_identifier: user.id,
+      });
+      updateError = insertError;
+    } catch (err) {
+      console.error("Exception inserting user record:", err);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { error: retryError } = await supabase.from("users").insert({
+        id: user.id,
+        name: fullName,
+        full_name: fullName,
+        email,
+        user_id: user.id,
+        token_identifier: user.id,
+      });
+      updateError = retryError;
+    }
+
+    if (updateError) {
+      console.error("Error updating user profile:", updateError);
+    }
+
+    // Create company profile
+    let companyError;
+
+    try {
+      // Try RPC
+      const { error: rpcError } = await supabase.rpc("create_company_profile", {
+        p_name: companyName || fullName + "'s Company",
+        p_prefix: "INV-",
+        p_default_currency: "HKD",
+        p_user_id: user.id,
+        p_is_complete: false,
+      });
+
+      if (!rpcError) {
+        console.log("Company profile created via RPC.");
+        return redirect("/dashboard/company-profile?setup=required");
+      }
+
+      console.error("RPC create_company_profile failed:", rpcError);
+    } catch (rpcException) {
+      console.error("Exception in RPC create_company_profile:", rpcException);
+    }
+
+    // Try insert fallback
+    try {
+      await supabase.rpc("disable_rls_for_company_profile");
+    } catch (disableErr) {
+      console.error("Could not disable RLS:", disableErr);
+    }
+
+    const { error: insertCompanyError } = await supabase.from("company_profile").insert({
+      name: companyName || fullName + "'s Company",
+      prefix: "INV-",
+      default_currency: "HKD",
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      is_complete: false,
+    });
+
+    if (insertCompanyError) {
+      console.error("Company profile insert failed:", insertCompanyError);
+      companyError = insertCompanyError;
+    }
+  } catch (err) {
+    console.error("Unexpected error during signup process:", err);
   }
 
-  // Redirect to dashboard/company-profile since email is already confirmed
-  // This ensures the user completes their profile on first login
+  // Always redirect to company-profile setup page
   return redirect("/dashboard/company-profile?setup=required");
 };
 
 export const signInAction = async (formData: FormData) => {
-  // Check if we need to create a default admin user
-  await createDefaultAdminIfNeeded();
-
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const supabase = await createClient();
+
+  const supabase = createServerSupabaseClient();
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -234,15 +143,16 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error.message);
+    // 用 redirect 回登入頁，帶 error query
+    redirect(`/sign-in?error=${encodeURIComponent(error.message)}`);
   }
 
-  return redirect("/dashboard");
+  redirect("/dashboard");
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
   const origin = headers().get("origin");
   const callbackUrl = formData.get("callbackUrl")?.toString();
 
@@ -275,7 +185,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
 };
 
 export const resetPasswordAction = async (formData: FormData) => {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
@@ -312,7 +222,7 @@ export const resetPasswordAction = async (formData: FormData) => {
 };
 
 export const signOutAction = async () => {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
   return redirect("/sign-in");
 };
@@ -320,7 +230,7 @@ export const signOutAction = async () => {
 export const createCustomerAction = async (formData: FormData) => {
   "use server";
 
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -368,7 +278,7 @@ export const createCustomerAction = async (formData: FormData) => {
 export const deleteCustomerAction = async (customerId: string) => {
   "use server";
 
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -387,7 +297,7 @@ export const deleteCustomerAction = async (customerId: string) => {
 export const updateCustomerAction = async (formData: FormData) => {
   "use server";
 
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -415,7 +325,7 @@ export const updateCustomerAction = async (formData: FormData) => {
 export const updateCompanyProfileAction = async (formData: FormData) => {
   "use server";
 
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

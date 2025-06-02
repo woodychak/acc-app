@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
-import { createClient } from "../../../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../../../supabase/server";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const supabase = await createClient();
+  const supabase = createServerSupabaseClient(); 
 
   const {
     data: { user },

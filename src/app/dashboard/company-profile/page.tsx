@@ -1,4 +1,4 @@
-import { createClient } from "../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../supabase/server";
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ export default async function CompanyProfilePage() {
   } catch (e) {
     console.error("Invalid URL in headers:", e);
   }
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -44,21 +44,19 @@ export default async function CompanyProfilePage() {
   // If none exists, create an empty profile for this user and reload
   if (error || !data) {
     console.log("No company profile found, creating one now...");
-    // Use admin client to bypass RLS for initial profile creation
-    const adminSupabase = await createClient({ admin: true });
-
+  
     // First try to disable RLS for this operation
     try {
       try {
-        await adminSupabase.rpc("disable_rls_for_company_profile");
+        await supabase.rpc("disable_rls_for_company_profile");
         console.log("Successfully disabled RLS for company profile creation");
       } catch (rpcErr) {
         console.error("Failed to disable RLS via RPC:", rpcErr);
         // Continue anyway, the insert might still work with admin client
       }
 
-      // Try to insert with admin client which should bypass RLS
-      const { data: newProfile, error: createError } = await adminSupabase
+      
+      const { data: newProfile, error: createError } = await supabase
         .from("company_profile")
         .insert({
           name: "",
@@ -78,7 +76,7 @@ export default async function CompanyProfilePage() {
         ) {
           try {
             // Try direct SQL execution if available
-            const { error: sqlError } = await adminSupabase.rpc("execute_sql", {
+            const { error: sqlError } = await supabase.rpc("execute_sql", {
               sql_query: `INSERT INTO company_profile (name, prefix, default_currency, user_id, is_complete) 
                            VALUES ('', 'INV-', 'HKD', '${user.id}', false)`,
             });
@@ -101,10 +99,10 @@ export default async function CompanyProfilePage() {
           } catch (sqlErr) {
             console.error("Exception in SQL execution:", sqlErr);
 
-            // Last resort: try one more time with the admin client
+            
             try {
               await new Promise((resolve) => setTimeout(resolve, 1000));
-              const { error: finalError } = await adminSupabase
+              const { error: finalError } = await supabase
                 .from("company_profile")
                 .insert({
                   name: "",

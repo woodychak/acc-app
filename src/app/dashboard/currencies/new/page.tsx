@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../../supabase/server";
 
 export default async function NewCurrencyPage() {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

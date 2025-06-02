@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Users, Plus, Pencil } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../supabase/server";
 import { DeleteCustomerButton } from "@/components/DeleteCustomerButton";
 
 export default async function CustomersPage() {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

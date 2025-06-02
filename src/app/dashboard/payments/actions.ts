@@ -1,11 +1,11 @@
 "use server";
 
-import { createClient } from "../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createPaymentAction(formData: FormData) {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -69,7 +69,7 @@ export async function createPaymentAction(formData: FormData) {
 }
 
 export async function deletePaymentAction(formData: FormData) {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -100,7 +100,7 @@ export async function deletePaymentAction(formData: FormData) {
 }
 
 export async function markInvoicePaidAction(formData: FormData): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

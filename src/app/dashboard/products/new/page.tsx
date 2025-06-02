@@ -6,11 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../supabase/server";
+import { createServerSupabaseClient } from "../../../../../supabase/server";
 import { createProductAction } from "../actions";
 
 export default async function NewProductPage() {
-  const supabase = await createClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },

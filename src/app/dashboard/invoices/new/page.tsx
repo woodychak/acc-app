@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Plus, Trash2, Search } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../supabase/client";
+import { createClient } from "../../../../../supabase/client";
 import { createInvoiceAction } from "../actions";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
