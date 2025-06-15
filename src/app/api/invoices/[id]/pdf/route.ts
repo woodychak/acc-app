@@ -339,7 +339,7 @@ export async function GET(
           logoHeight = dims.height; 
           page.drawImage(logoImage, {
             x: PageMargin,
-            y: currentY - logoHeight, 
+            y: currentY - logoHeight + 20, 
             width: dims.width,
             height: dims.height,
           });
@@ -351,7 +351,7 @@ export async function GET(
       console.error("Error loading or embedding logo:", error);
     }
     
-    let leftY = initialHeaderY - (logoImage ? logoHeight + 10 : 0); 
+    let leftY = initialHeaderY - (logoImage ? logoHeight + 20 : 0); 
     if (!logoImage) {
         leftY = initialHeaderY; 
     }

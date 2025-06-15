@@ -138,9 +138,7 @@ export default function NewInvoicePage() {
     } else {
       const filtered = products.filter(
         (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (product.sku &&
-            product.sku.toLowerCase().includes(searchTerm.toLowerCase())),
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
       setFilteredProducts(filtered);
     }

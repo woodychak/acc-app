@@ -154,18 +154,34 @@ export default function EditInvoicePage({
 
   // Filter products based on search term
   useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredProducts(products);
-    } else {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (product.sku &&
-            product.sku.toLowerCase().includes(searchTerm.toLowerCase())),
-      );
-      setFilteredProducts(filtered);
-    }
-  }, [searchTerm, products]);
+    const fetchData = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+  
+      if (!user) {
+        window.location.href = "/sign-in";
+        return;
+      }
+  
+      // Fetch invoice, items...（你應該已有這部分）
+  
+      // Fetch products
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name", { ascending: true });
+  
+      if (productsData) {
+        setProducts(productsData);
+        setFilteredProducts(productsData); // ⭐ 重要
+      }
+    };
+  
+    fetchData();
+  }, []);
 
   const handleAddItem = () => {
     setInvoiceItems([
