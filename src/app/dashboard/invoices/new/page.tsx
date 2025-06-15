@@ -156,6 +156,8 @@ export default function NewInvoicePage() {
         quantity: 1,
         unit_price: 0,
         tax_rate: 0,
+        tax_amount: 0,
+
       },
     ]);
   };

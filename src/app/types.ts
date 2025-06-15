@@ -7,10 +7,18 @@ export type Invoice = {
   issue_date: string;
   due_date: string;
   status: string;
+  tax_amount: number;
+  subtotal: number;
+  discount_amount: number;
   notes?: string;
-  total_amount?: number;
+  total_amount: number;
+  invoice_items: InvoiceItems[];
   customer: {
     name: string;
+    email: string;
+    address: string;
+    phone: string;
+    
   };
 };
 
@@ -22,7 +30,7 @@ export type InvoiceItems = {
   quantity: number;
   unit_price: number;
   tax_rate?: number;
-  tax_amount?: number;
+  tax_amount: number;
   line_total?: number;
   original_id?: string;
 };
@@ -41,7 +49,11 @@ export type Product = {
 export type Customer = {
   id: string;
   name: string;
+  email?: string;
+  address?: string;
+  
 };
+
 
 export type CompanyProfile = {
   id: string;

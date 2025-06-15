@@ -22,6 +22,16 @@ const nextConfig = {
         hostname: "assets-cdn.watchdisneyfe.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.pinimg.com",
+        pathname: "/**"
+      },
+      {
+        protocol: "https",
+        hostname: "kz-studio.hk",
+        pathname: "/**"
+      }
       
     ],
   },
