@@ -374,31 +374,6 @@ export async function GET(
     rightY = drawTextLine(page, `Date Issued: ${formatDatePdf(invoice.issue_date)}`, rightY, headerRightX, {font: font, size:FontSizes.body, color: Colors.neutralDark, align: 'right', maxWidth: headerRightWidth});
     rightY = drawTextLine(page, `Date Due: ${formatDatePdf(invoice.due_date)}`, rightY, headerRightX, {font: font, size:FontSizes.body, color: Colors.neutralDark, align: 'right', maxWidth: headerRightWidth});
 
-    if (invoice.status) {
-        rightY -= LineHeight * 0.5; 
-        const statusText = `Status: ${sanitizePdfText(invoice.status).toUpperCase()}`;
-        const statusTextWidth = boldFont.widthOfTextAtSize(statusText, FontSizes.body);
-        const badgePaddingHorizontal = 8; 
-        const badgePaddingVertical = 3;
-        const badgeContentWidth = statusTextWidth + badgePaddingHorizontal * 2;
-        
-        const badgeX = headerRightX + headerRightWidth - badgeContentWidth;
-        const badgeHeight = FontSizes.body + badgePaddingVertical * 2;
-        const badgeRectY = rightY - badgeHeight + (badgePaddingVertical*0.8); 
-
-        page.drawRectangle({
-            x: badgeX,
-            y: badgeRectY,
-            width: badgeContentWidth,
-            height: badgeHeight,
-            color: Colors.primaryDark,
-        });
-        
-        const textYForBadge = badgeRectY + badgePaddingVertical;
-        drawTextLine(page, statusText, textYForBadge , badgeX + badgePaddingHorizontal, {font: boldFont, size: FontSizes.body, color: Colors.white, lineHeight: FontSizes.body });
-        rightY -= badgeHeight; 
-    }
-
     const headerContentBottomY = Math.min(leftY, rightY); 
     const separatorYFromContent = headerContentBottomY - (SectionSpacing * 0.5);
     const separatorYFromMinHeight = initialHeaderY - MinHeaderHeightPoints;
@@ -422,66 +397,117 @@ export async function GET(
     currentY -= SectionSpacing;
 
     // ======== 3. ITEMS TABLE ========
+currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth);
+
+const tableBottomMargin = PageMargin + 200; // 換頁保留空間
+
+for (const item of invoice.invoice_items) {
+  // 檢查是否需要換頁
+  if (currentY < tableBottomMargin) {
+    page = pdfDoc.addPage([595.28, 841.89]);
+    pageHeight = page.getSize().height;
+    pageWidth = page.getSize().width;
+    currentY = pageHeight - PageMargin;
     currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth);
+  }
 
-    const tableBottomMargin = PageMargin + 200; 
+  const lineTotalWithTax = calculateLineTotalWithTax(item);
+  const itemLineHeight = LineHeight * 1.2;
 
-    for (const item of invoice.invoice_items) {
-      if (currentY < tableBottomMargin) {
-        page = pdfDoc.addPage([595.28, 841.89]);
-        pageHeight = page.getSize().height;
-        pageWidth = page.getSize().width;
-        currentY = pageHeight - PageMargin;
-        currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth);
-      }
+  const itemTextOptionsBase: Omit<DrawTextOptions, 'font' | 'align' | 'maxWidth'> = {
+    size: FontSizes.body,
+    color: Colors.neutralDarker,
+  };
+  const optionsForThisRow: DrawTextOptions = {
+    font: font,
+    ...itemTextOptionsBase,
+    lineHeight: itemLineHeight,
+  };
 
-      const lineTotalWithTax = calculateLineTotalWithTax(item);
-      const itemTextOptionsBase: Omit<DrawTextOptions, 'font' | 'align' | 'maxWidth'> = { size: FontSizes.body, color: Colors.neutralDarker };
-      
-      const colWidths = [0.40, 0.15, 0.15, 0.15, 0.15];
-      const tableWidth = pageWidth - 2 * PageMargin;
+  const colWidths = [0.4, 0.15, 0.15, 0.15, 0.15];
+  const tableWidth = pageWidth - 2 * PageMargin;
 
-      const descriptionX = PageMargin;
-      const descriptionMaxWidth = tableWidth * colWidths[0] - 5; 
+  const descriptionX = PageMargin;
+  const descriptionMaxWidth = tableWidth * colWidths[0] - 5;
 
-      const quantityX = PageMargin + tableWidth * colWidths[0];
-      const quantityMaxWidth = tableWidth * colWidths[1] - 5;
+  const quantityX = PageMargin + tableWidth * colWidths[0];
+  const quantityMaxWidth = tableWidth * colWidths[1] - 5;
 
-      const unitPriceX = quantityX + tableWidth * colWidths[1];
-      const unitPriceMaxWidth = tableWidth * colWidths[2] - 5;
-      
-      const taxRateX = unitPriceX + tableWidth * colWidths[2];
-      const taxRateMaxWidth = tableWidth * colWidths[3] - 5;
+  const unitPriceX = quantityX + tableWidth * colWidths[1];
+  const unitPriceMaxWidth = tableWidth * colWidths[2] - 5;
 
-      const lineTotalX = taxRateX + tableWidth * colWidths[3];
-      const lineTotalMaxWidth = tableWidth * colWidths[4] -5;
-      
-      const itemLineHeight = LineHeight * 1.2; 
-      const optionsForThisRow : DrawTextOptions = {font: font, ...itemTextOptionsBase, lineHeight: itemLineHeight};
+  const taxRateX = unitPriceX + tableWidth * colWidths[2];
+  const taxRateMaxWidth = tableWidth * colWidths[3] - 5;
 
-      const tempY = currentY; 
-      let descriptionHeight = 0;
-      let currentDescY = tempY;
+  const lineTotalX = taxRateX + tableWidth * colWidths[3];
+  const lineTotalMaxWidth = tableWidth * colWidths[4] - 5;
 
-      // Sanitize item.description before drawing
-      const finalDescY = drawMultiLineText(page, item.description, currentDescY, descriptionX, {...optionsForThisRow, maxWidth: descriptionMaxWidth}, pageWidth);
-      descriptionHeight = tempY - finalDescY; 
+  const tempY = currentY;
 
-      drawTextLine(page, item.quantity.toString(), tempY, quantityX, { ...optionsForThisRow, align: 'right', maxWidth: quantityMaxWidth });
-      drawTextLine(page, formatCurrencyPdf(item.unit_price, invoice.currency_code), tempY, unitPriceX, { ...optionsForThisRow, align: 'right', maxWidth: unitPriceMaxWidth });
-      drawTextLine(page, item.tax_rate ? `${item.tax_rate}%` : "N/A", tempY, taxRateX, { ...optionsForThisRow, align: 'right', maxWidth: taxRateMaxWidth });
-      drawTextLine(page, formatCurrencyPdf(lineTotalWithTax, invoice.currency_code), tempY, lineTotalX, { ...optionsForThisRow, font: boldFont, align: 'right', maxWidth: lineTotalMaxWidth });
+  // 1. 畫 description 多行文字
+  const finalDescY = drawMultiLineText(
+    page,
+    item.description,
+    tempY,
+    descriptionX,
+    { ...optionsForThisRow, maxWidth: descriptionMaxWidth },
+    pageWidth
+  );
+  const descriptionHeight = tempY - finalDescY;
 
-      currentY = tempY - Math.max(itemLineHeight, descriptionHeight); 
-      
-      page.drawLine({
-          start: { x: PageMargin, y: currentY + itemLineHeight * 0.2 }, 
-          end: { x: pageWidth - PageMargin, y: currentY + itemLineHeight * 0.2 },
-          thickness: 0.5,
-          color: Colors.neutralMedium,
-      });
+  // 2. 畫其他欄位（跟 description 同行頂部）
+  drawTextLine(page, item.quantity.toString(), tempY, quantityX, {
+    ...optionsForThisRow,
+    align: 'right',
+    maxWidth: quantityMaxWidth,
+  });
+
+  drawTextLine(
+    page,
+    formatCurrencyPdf(item.unit_price, invoice.currency_code),
+    tempY,
+    unitPriceX,
+    {
+      ...optionsForThisRow,
+      align: 'right',
+      maxWidth: unitPriceMaxWidth,
     }
-    currentY -= SectionSpacing * 0.5;
+  );
+
+  drawTextLine(
+    page,
+    item.tax_rate ? `${item.tax_rate}%` : '0%',
+    tempY,
+    taxRateX,
+    {
+      ...optionsForThisRow,
+      align: 'right',
+      maxWidth: taxRateMaxWidth,
+    }
+  );
+
+  drawTextLine(
+    page,
+    formatCurrencyPdf(lineTotalWithTax, invoice.currency_code),
+    tempY,
+    lineTotalX,
+    {
+      ...optionsForThisRow,
+      font: boldFont,
+      align: 'right',
+      maxWidth: lineTotalMaxWidth,
+    }
+  );
+
+  // 3. 畫分隔線（在 finalDescY 以下一點）
+  const lineY = finalDescY;
+ 
+
+  // 4. 移動 Y 軸，為下一項目準備
+  currentY = lineY - 5; // 加點間距讓視覺舒服
+}
+
+currentY -= SectionSpacing * 0.5;
 
     // ======== 4. TOTALS SECTION ========
     const totalsX = pageWidth / 2; 
