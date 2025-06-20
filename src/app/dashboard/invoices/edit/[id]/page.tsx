@@ -220,7 +220,8 @@ export default function EditInvoicePage({
 const handleProductSelect = (product: Product, index: number) => {
   const newItems = [...invoiceItems];
   newItems[index].product_id = product.id;
-  newItems[index].description = product.name;
+  newItems[index].product_name = product.name; // for UI only
+  newItems[index].description = product.description;
   newItems[index].unit_price = product.price;
   newItems[index].tax_rate = product.tax_rate || 0;
   setInvoiceItems(newItems);
@@ -587,79 +588,73 @@ const openProductSearch = (index: number) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {invoiceItems.map((item, index) => (
                         <tr key={item.id}>
-                          <td className="px-6 py-4 whitespace-nowrap relative">
-                            <div className="flex items-center">
-                              <Input
-                                name={`items[${index}][description]`}
-                                placeholder="Description"
-                                value={item.description}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "description",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openProductSearch(index)}
-                                className="ml-2"
-                              >
-                                <Search className="h-4 w-4" />
-                              </Button>
-                              <input
-                                type="hidden"
-                                name={`items[${index}][product_id]`}
-                                value={item.product_id || ""}
-                              />
-                            </div>
+                          <td className="px-6 py-4 align-top max-w-[250px] whitespace-normal break-words text-sm relative">
+  <div className="flex items-start gap-2 mb-1">
+    <Input
+      type="text"
+      value={item.product_name || ""}
+      placeholder="Product Name"
+      readOnly
+      className="w-full text-gray-600 font-semibold"
+    />
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={() => openProductSearch(index)}
+    >
+      <Search className="h-4 w-4" />
+    </Button>
+    <input
+      type="hidden"
+      name={`items[${index}][product_id]`}
+      value={item.product_id || ""}
+    />
+  </div>
 
-                            {showProductSearch && activeItemIndex === index && (
-                              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
-                                <div className="p-2 sticky top-0 bg-white border-b">
-                                  <Input
-                                    placeholder="Search products..."
-                                    value={searchTerm}
-                                    onChange={(e) =>
-                                      setSearchTerm(e.target.value)
-                                    }
-                                    className="w-full"
-                                    autoFocus
-                                  />
-                                </div>
-                                <ul className="max-h-80 overflow-y-auto">
-                                  {filteredProducts.map((product) => (
-                                    <li
-                                      key={product.id}
-                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                      onClick={() =>
-                                        handleProductSelect(product, index)
-                                      }
-                                    >
-                                      <div className="font-medium">
-                                        {product.name}
-                                      </div>
-                                      <div className="text-sm text-gray-500 flex justify-between">
-                                        <span>{product.sku}</span>
-                                        <span>
-                                          {formatCurrency(product.price)}
-                                        </span>
-                                      </div>
-                                    </li>
-                                  ))}
-                                  {filteredProducts.length === 0 && (
-                                    <li className="px-4 py-2 text-gray-500">
-                                      No products found
-                                    </li>
-                                  )}
-                                </ul>
-                              </div>
-                            )}
-                          </td>
+  <Textarea
+    name={`items[${index}][description]`}
+    placeholder="Description"
+    value={item.description || ""}
+    onChange={(e) =>
+      handleItemChange(index, "description", e.target.value)
+    }
+    className="w-full"
+    rows={2}
+  />
+
+  {showProductSearch && activeItemIndex === index && (
+    <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
+      <div className="p-2 sticky top-0 bg-white border-b">
+        <Input
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full"
+          autoFocus
+        />
+      </div>
+      <ul className="max-h-80 overflow-y-auto">
+        {filteredProducts.map((product) => (
+          <li
+            key={product.id}
+            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+            onClick={() => handleProductSelect(product, index)}
+          >
+            <div className="font-medium">{product.name}</div>
+            <div className="text-sm text-gray-500 flex justify-between">
+              <span>{product.sku}</span>
+              <span>{formatCurrency(product.price)}</span>
+            </div>
+          </li>
+        ))}
+        {filteredProducts.length === 0 && (
+          <li className="px-4 py-2 text-gray-500">No products found</li>
+        )}
+      </ul>
+    </div>
+  )}
+</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Input
                               name={`items[${index}][quantity]`}

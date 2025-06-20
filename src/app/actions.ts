@@ -264,6 +264,7 @@ export const createCustomerAction = async (formData: FormData) => {
       country,
       notes,
       user_id: user.id, // ✅ this line is essential
+      created_by: user.id,
     },
   ]);
 

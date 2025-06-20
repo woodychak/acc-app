@@ -26,6 +26,7 @@ export type InvoiceItems = {
   id?: string | number;
   invoice_id?: string;
   product_id?: string | null;
+  product_name?: string;
   description: string;
   quantity: number;
   unit_price: number;
@@ -39,6 +40,7 @@ export type Product = {
   is_active: boolean;  // 加這行
   id: string;
   name: string;
+  description: string;
   sku?: string;
   price: number;
   tax_rate?: number;
