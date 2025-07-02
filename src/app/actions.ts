@@ -268,11 +268,6 @@ export const createCustomerAction = async (formData: FormData) => {
     },
   ]);
 
-  if (error) {
-    console.error("Customer insert error:", error.message);
-    throw new Error(error.message); // This will be caught by Next.js error boundary
-  }
-
   redirect("/dashboard/customers");
 };
 

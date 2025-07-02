@@ -46,7 +46,7 @@ const FontSizes = {
 
 const PageMargin = 50;
 const LineHeight = 15;
-const SectionSpacing = 20;
+const SectionSpacing = 10;
 const MinHeaderHeightPoints = 150; // Minimum height for the header section
 
 // Helper to sanitize text for PDF, removing problematic characters

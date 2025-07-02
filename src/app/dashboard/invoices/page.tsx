@@ -16,15 +16,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Invoice, Customer, InvoiceWithCustomer } from "@/app/types";
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<InvoiceWithCustomer[]>([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -43,7 +41,7 @@ export default function InvoicesPage() {
         .select(
           `
           *,
-          customer:customers(id, name)
+          customers(name)
         `,
         )
         .eq("user_id", user.id)
@@ -58,7 +56,7 @@ export default function InvoicesPage() {
     fetchInvoices();
   }, []);
 
-  const handleDeleteClick = (invoice: Invoice) => {
+  const handleDeleteClick = (invoice) => {
     setInvoiceToDelete(invoice);
     setDeleteDialogOpen(true);
   };
@@ -95,34 +93,31 @@ export default function InvoicesPage() {
     setInvoiceToDelete(null);
   };
 
-  const formatCurrency = (amount: number | undefined, currencyCode?: string) => {
-    if (amount === undefined || amount === null) return "-";
+  const formatCurrency = (amount, currencyCode) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: currencyCode || "HKD",
+      currency: currencyCode || "USD",
     }).format(amount);
   };
 
-  
-const formatDate = (dateString?: string) => {
-  if (!dateString) return "-";
-  return new Date(dateString).toLocaleDateString();
-};
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
+  };
 
-const getStatusBadgeClass = (status?: string): string => {
-  switch (status?.toLowerCase()) {
-    case "paid":
-      return "bg-green-100 text-green-800";
-    case "overdue":
-      return "bg-red-100 text-red-800";
-    case "sent":
-      return "bg-blue-100 text-blue-800";
-    case "cancelled":
-      return "bg-gray-100 text-gray-800";
-    default:
-      return "bg-yellow-100 text-yellow-800"; // draft
-  }
-};
+  const getStatusBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case "paid":
+        return "bg-green-100 text-green-800";
+      case "overdue":
+        return "bg-red-100 text-red-800";
+      case "sent":
+        return "bg-blue-100 text-blue-800";
+      case "cancelled":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-yellow-100 text-yellow-800"; // draft
+    }
+  };
 
   return (
     <>
@@ -173,7 +168,6 @@ const getStatusBadgeClass = (status?: string): string => {
                         </Link>
                       </td>
                       <td className="p-2">{invoice.customers?.name}</td>
-                      
                       <td className="p-2">{formatDate(invoice.issue_date)}</td>
                       <td className="p-2">{formatDate(invoice.due_date)}</td>
                       <td className="p-2">

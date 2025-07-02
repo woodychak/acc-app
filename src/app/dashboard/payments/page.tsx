@@ -132,7 +132,7 @@ export default async function PaymentsPage() {
                             {invoice.invoice_number}
                           </Link>
                         </td>
-                        <td className="px-4 py-2">{invoice.customers?.[0]?.name}</td>
+                        <td className="px-4 py-2">{invoice.customers?.name}</td>
                         <td className="px-4 py-2">
                           {formatDate(invoice.issue_date)}
                         </td>
@@ -235,21 +235,19 @@ export default async function PaymentsPage() {
                           {formatDate(payment.payment_date)}
                         </td>
                         <td className="px-4 py-2">
-                        {payment.invoices && payment.invoices.length > 0 ? (
-                              <Link
-                              href={`/dashboard/invoices/${(payment.invoices[0] as any).id}`}
-                                className="text-primary hover:underline"
-                              >
-                                {payment.invoices[0].invoice_number}
-                              </Link>
+                          {payment.invoices ? (
+                            <Link
+                              href={`/dashboard/invoices/${payment.invoice_id}`}
+                              className="text-primary hover:underline"
+                            >
+                              {payment.invoices.invoice_number}
+                            </Link>
                           ) : (
                             "N/A"
                           )}
                         </td>
                         <td className="px-4 py-2">
-                        {payment.invoices && payment.invoices.length > 0
-                          ? payment.invoices[0].customers?.[0]?.name || "N/A"
-                          : "N/A"}
+                          {payment.invoices?.customers?.name || "N/A"}
                         </td>
                         <td className="px-4 py-2">{payment.payment_method}</td>
                         <td className="px-4 py-2">

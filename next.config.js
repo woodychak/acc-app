@@ -31,15 +31,31 @@ const nextConfig = {
         protocol: "https",
         hostname: "kz-studio.hk",
         pathname: "/**"
+      },
+      {
+        protocol: "https",
+        hostname: "seibushoko.com",
+        pathname: "/**"
       }
       
     ],
   },
   webpack(config) {
-    config.module.rules.push({
-      test: /\.map$/,
-      use: "null-loader",
-    });
+    config.module.rules.push(
+      {
+        test: /\.map$/,
+        use: "null-loader",
+      },
+      {
+        test: /pdf\.worker\.mjs$/, // ✅ MUST match `.mjs` not `.js`
+        type: "asset/resource",
+      },
+      {
+        test: /\.mjs$/, // ✅ ESM modules from node_modules
+        include: /node_modules/,
+        type: "javascript/auto",
+      }
+    );
     return config;
   },
 };
@@ -52,3 +68,4 @@ if (process.env.NEXT_PUBLIC_TEMPO) {
 }
 
 module.exports = nextConfig;
+

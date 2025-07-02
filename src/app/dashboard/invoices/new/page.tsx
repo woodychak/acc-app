@@ -12,26 +12,33 @@ import { createClient } from "../../../../../supabase/client";
 import { createInvoiceAction } from "../actions";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Invoice, Product, Customer, InvoiceItems, CompanyProfile } from "@/app/types";
-
 
 export default function NewInvoicePage() {
   const router = useRouter();
   const formRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItems[]>([]);
+  const [invoiceItems, setInvoiceItems] = useState([
+    {
+      id: 0,
+      product_id: "",
+      description: "",
+      quantity: 1,
+      unit_price: 0,
+      tax_rate: 0,
+    },
+  ]);
   const [subtotal, setSubtotal] = useState(0);
   const [taxTotal, setTaxTotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [companyProfile, setCompanyProfile] = useState(null);
   const [defaultCurrency, setDefaultCurrency] = useState("HKD");
   const [invoicePrefix, setInvoicePrefix] = useState("INV-");
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("");
@@ -49,7 +56,7 @@ export default function NewInvoicePage() {
       }
 
       // Fetch customers
-      const { data: customersData, error } = await supabase
+      const { data: customersData } = await supabase
         .from("customers")
         .select("id, name")
         .order("name", { ascending: true });
@@ -87,25 +94,53 @@ export default function NewInvoicePage() {
         }
       }
 
-      // Get latest invoice number
+      // Get latest invoice number for the current user
       const { data: latestInvoice } = await supabase
         .from("invoices")
         .select("invoice_number")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
 
       let nextNumber = 1;
+      const currentPrefix = profileData?.prefix || "INV-";
+
       if (latestInvoice?.invoice_number) {
-        const prefix = profileData?.prefix || "INV-";
-        const regex = new RegExp(`${prefix}(\\d+)`);
+        // Extract number from the latest invoice with the current prefix
+        const escapedPrefix = currentPrefix.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&",
+        );
+        const regex = new RegExp(`^${escapedPrefix}(\\d+)`);
         const match = latestInvoice.invoice_number.match(regex);
         if (match) {
           nextNumber = parseInt(match[1]) + 1;
+        } else {
+          // If the latest invoice doesn't match current prefix format,
+          // find the highest number with current prefix
+          const { data: allInvoices } = await supabase
+            .from("invoices")
+            .select("invoice_number")
+            .eq("user_id", user.id)
+            .like("invoice_number", `${currentPrefix}%`);
+
+          if (allInvoices && allInvoices.length > 0) {
+            const numbers = allInvoices
+              .map((inv) => {
+                const match = inv.invoice_number.match(regex);
+                return match ? parseInt(match[1]) : 0;
+              })
+              .filter((num) => num > 0);
+
+            if (numbers.length > 0) {
+              nextNumber = Math.max(...numbers) + 1;
+            }
+          }
         }
       }
 
-      const generatedInvoiceNumber = `${profileData?.prefix || "INV-"}${String(nextNumber).padStart(4, "0")}`;
+      const generatedInvoiceNumber = `${currentPrefix}${String(nextNumber).padStart(4, "0")}`;
       setNextInvoiceNumber(generatedInvoiceNumber);
     };
 
@@ -138,7 +173,9 @@ export default function NewInvoicePage() {
     } else {
       const filtered = products.filter(
         (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()),
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.sku &&
+            product.sku.toLowerCase().includes(searchTerm.toLowerCase())),
       );
       setFilteredProducts(filtered);
     }
@@ -154,52 +191,45 @@ export default function NewInvoicePage() {
         quantity: 1,
         unit_price: 0,
         tax_rate: 0,
-        tax_amount: 0,
-
       },
     ]);
   };
 
-  const handleRemoveItem = (index: number) => {
+  const handleRemoveItem = (index) => {
     const newItems = [...invoiceItems];
     newItems.splice(index, 1);
     setInvoiceItems(newItems);
   };
 
-  const handleItemChange = <K extends keyof InvoiceItems>(
-    index: number,
-    field: K,
-    value: InvoiceItems[K]
-  ) => {
+  const handleItemChange = (index, field, value) => {
     const newItems = [...invoiceItems];
     newItems[index][field] = value;
     setInvoiceItems(newItems);
   };
 
-  const handleProductSelect = (product: Product, index: number) => {
+  const handleProductSelect = (product, index) => {
     const newItems = [...invoiceItems];
     newItems[index].product_id = product.id;
-    newItems[index].product_name = product.name; // for UI only
-    newItems[index].description = product.description;
+    newItems[index].description = product.name;
     newItems[index].unit_price = product.price;
     newItems[index].tax_rate = product.tax_rate || 0;
     setInvoiceItems(newItems);
     setShowProductSearch(false);
   };
 
-  const openProductSearch = (index: number) => {
+  const openProductSearch = (index) => {
     setActiveItemIndex(index);
     setShowProductSearch(true);
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: defaultCurrency,
     }).format(amount);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError("");
@@ -215,44 +245,12 @@ export default function NewInvoicePage() {
         return;
       }
 
-      if (!formRef.current) {
-        // handle or return early, e.g.:
-        console.error("Form ref is not assigned");
-        return;
-      }
-      const supabase = createClient();
-      // 送出前，重新取得最新的發票號碼
-      // 從supabase取出最新發票號碼
-      const { data: latestInvoice, error: fetchError } = await supabase
-      .from("invoices")
-      .select("invoice_number")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-      // 計算下一張發票號碼
-      let nextNumber = 1;
-      
-      if (latestInvoice?.invoice_number) {
-        const prefix = invoicePrefix || "INV-";
-        const regex = new RegExp(`${prefix}(\\d+)`);
-        const match = latestInvoice.invoice_number.match(regex);
-        if (match) {
-          nextNumber = parseInt(match[1]) + 1;
-        }
-      }
-      // ✅ 確保 prefix 仍然在作用域中
-      const prefix = invoicePrefix || "INV-";
-      const newInvoiceNumber = `${prefix}${String(nextNumber).padStart(4, "0")}`;  
       const formData = new FormData(formRef.current);
 
       // Add calculated values
-      formData.set("subtotal", subtotal.toString());
-      formData.set("tax_amount", taxTotal.toString());
-      formData.set("total_amount", total.toString());
+      formData.set("subtotal", subtotal);
+      formData.set("tax_amount", taxTotal);
+      formData.set("total_amount", total);
 
       // Make sure currency is one of the supported currencies
       const currency = formData.get("currency_code");
@@ -267,7 +265,7 @@ export default function NewInvoicePage() {
         "AUD",
         "SGD",
       ];
-      if (typeof currency !== "string" || !supportedCurrencies.includes(currency)) {
+      if (!supportedCurrencies.includes(currency)) {
         formData.set("currency_code", "HKD"); // Default to HKD if not supported
       }
 
@@ -456,73 +454,79 @@ export default function NewInvoicePage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {invoiceItems.map((item, index) => (
                         <tr key={item.id}>
-                          <td className="px-6 py-4 align-top max-w-[250px] whitespace-normal break-words text-sm relative">
-  <div className="flex items-start gap-2 mb-1">
-    <Input
-      type="text"
-      value={item.product_name || ""}
-      placeholder="Product Name"
-      readOnly
-      className="w-full text-gray-600 font-semibold"
-    />
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={() => openProductSearch(index)}
-    >
-      <Search className="h-4 w-4" />
-    </Button>
-    <input
-      type="hidden"
-      name={`items[${index}][product_id]`}
-      value={item.product_id || ""}
-    />
-  </div>
+                          <td className="px-6 py-4 whitespace-nowrap relative">
+                            <div className="flex items-center">
+                              <Input
+                                name={`items[${index}][description]`}
+                                placeholder="Description"
+                                value={item.description}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "description",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openProductSearch(index)}
+                                className="ml-2"
+                              >
+                                <Search className="h-4 w-4" />
+                              </Button>
+                              <input
+                                type="hidden"
+                                name={`items[${index}][product_id]`}
+                                value={item.product_id || ""}
+                              />
+                            </div>
 
-  <Textarea
-    name={`items[${index}][description]`}
-    placeholder="Description"
-    value={item.description || ""}
-    onChange={(e) =>
-      handleItemChange(index, "description", e.target.value)
-    }
-    className="w-full"
-    rows={2}
-  />
-
-  {showProductSearch && activeItemIndex === index && (
-    <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
-      <div className="p-2 sticky top-0 bg-white border-b">
-        <Input
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full"
-          autoFocus
-        />
-      </div>
-      <ul className="max-h-80 overflow-y-auto">
-        {filteredProducts.map((product) => (
-          <li
-            key={product.id}
-            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-            onClick={() => handleProductSelect(product, index)}
-          >
-            <div className="font-medium">{product.name}</div>
-            <div className="text-sm text-gray-500 flex justify-between">
-              <span>{product.sku}</span>
-              <span>{formatCurrency(product.price)}</span>
-            </div>
-          </li>
-        ))}
-        {filteredProducts.length === 0 && (
-          <li className="px-4 py-2 text-gray-500">No products found</li>
-        )}
-      </ul>
-    </div>
-  )}
-</td>
+                            {showProductSearch && activeItemIndex === index && (
+                              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
+                                <div className="p-2 sticky top-0 bg-white border-b">
+                                  <Input
+                                    placeholder="Search products..."
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                      setSearchTerm(e.target.value)
+                                    }
+                                    className="w-full"
+                                    autoFocus
+                                  />
+                                </div>
+                                <ul className="max-h-80 overflow-y-auto">
+                                  {filteredProducts.map((product) => (
+                                    <li
+                                      key={product.id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                      onClick={() =>
+                                        handleProductSelect(product, index)
+                                      }
+                                    >
+                                      <div className="font-medium">
+                                        {product.name}
+                                      </div>
+                                      <div className="text-sm text-gray-500 flex justify-between">
+                                        <span>{product.sku}</span>
+                                        <span>
+                                          {formatCurrency(product.price)}
+                                        </span>
+                                      </div>
+                                    </li>
+                                  ))}
+                                  {filteredProducts.length === 0 && (
+                                    <li className="px-4 py-2 text-gray-500">
+                                      No products found
+                                    </li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Input
                               name={`items[${index}][quantity]`}

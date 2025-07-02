@@ -19,10 +19,10 @@ import {
   Globe,
   BarChart3,
   DollarSign,
+  Receipt,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
-
 
 export default function DashboardNavbar() {
   const supabase = createClient();
@@ -54,6 +54,11 @@ export default function DashboardNavbar() {
       name: "Payments",
       href: "/dashboard/payments",
       icon: <CreditCard className="h-5 w-5" />,
+    },
+    {
+      name: "Expenses",
+      href: "/dashboard/expenses",
+      icon: <Receipt className="h-5 w-5" />,
     },
     {
       name: "Currencies",
@@ -119,12 +124,8 @@ export default function DashboardNavbar() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onClick={async () => {
-                  const { error } = await supabase.auth.signOut();
-                  if (!error) {
-                    router.push("/sign-in"); // 👈 redirect to login
-                  } else {
-                    console.error("Sign-out error:", error.message);
-                  }
+                  await supabase.auth.signOut();
+                  router.refresh();
                 }}
               >
                 Sign out
