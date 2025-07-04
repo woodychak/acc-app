@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '../../supabase/server'
 import { Button } from './ui/button'
 import { User, UserCircle } from 'lucide-react'
 import UserProfile from './user-profile'
+import Image from "next/image";
 
 export default async function Navbar() {
   const supabase = createServerSupabaseClient()
@@ -14,7 +15,13 @@ export default async function Navbar() {
     <nav className="w-full border-b border-gray-200 bg-white py-2">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <Link href="/" prefetch className="text-xl font-bold">
-          Logo
+        <Image
+          src="/zenit_logo.png"
+          alt="Zenit Logo"
+          width={120}
+          height={40}
+          className="h-auto w-auto object-contain"
+        />
         </Link>
         <div className="flex gap-4 items-center">
           {user ? (

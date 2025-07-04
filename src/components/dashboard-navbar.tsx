@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
+import Image from "next/image";
 
 export default function DashboardNavbar() {
   const supabase = createClient();
@@ -60,11 +61,11 @@ export default function DashboardNavbar() {
       href: "/dashboard/expenses",
       icon: <Receipt className="h-5 w-5" />,
     },
-    {
-      name: "Currencies",
-      href: "/dashboard/currencies",
-      icon: <Globe className="h-5 w-5" />,
-    },
+    // {
+    //   name: "Currencies",
+    //   href: "/dashboard/currencies",
+    //   icon: <Globe className="h-5 w-5" />,
+    // },
     {
       name: "Company",
       href: "/dashboard/company-profile",
@@ -86,7 +87,13 @@ export default function DashboardNavbar() {
             prefetch
             className="text-xl font-bold flex items-center"
           >
-            <DollarSign className="h-6 w-6 mr-2 text-blue-600" />
+             <Image
+                      src="/zenit_logo.png"
+                      alt="Zenit Logo"
+                      width={120}
+                      height={40}
+                      className="h-auto w-auto object-contain"
+                    />
             <span>Accounting</span>
           </Link>
         </div>
