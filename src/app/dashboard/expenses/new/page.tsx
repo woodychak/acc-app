@@ -26,7 +26,7 @@ import { createClient } from "../../../../../supabase/client";
 import { useRouter } from "next/navigation";
 import { extractReceiptData } from "@/lib/receipt-ocr";
 import { useEffect } from "react";
-import { pdfPageToPng } from "@/lib/pdf-to-image";
+
 
 const EXPENSE_CATEGORIES = [
   "Office Supplies",
@@ -635,6 +635,7 @@ export default function NewExpensePage() {
     let previewUrl: string;
 
     if (isPdf) {
+      const { pdfPageToPng } = await import('@/lib/pdf-to-image'); 
       const pngBlob = await pdfPageToPng(file);
       ocrFile = new File([pngBlob], file.name + ".png", { type: "image/png" });
       previewUrl = URL.createObjectURL(pngBlob);

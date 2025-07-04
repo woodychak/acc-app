@@ -1,26 +1,26 @@
 
-// src/lib/pdf-to-image.ts
 'use client';
-
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist/legacy/build/pdf";
-
-// Set up worker for pdfjs-dist 5.3.31
-if (typeof window !== 'undefined') {
-  // Using the exact version for the worker
-  GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs`;
-}
 
 export async function pdfPageToPng(file: File, pageNum = 1): Promise<Blob> {
   if (typeof window === 'undefined') {
-    throw new Error('pdfPageToPng must be run in the browser.');
+    throw new Error('pdfPageToPng must run in the browser');
+  }
+
+  // 🟢 Import the top-level module — fewer edge-cases
+  // @ts-ignore  pdfjs-dist has no types for the root entry
+  const pdfjs: any = await import('pdfjs-dist');
+
+  const { getDocument, GlobalWorkerOptions } = pdfjs;
+
+  // Point the worker to a CDN copy (or your own /public copy if you prefer)
+  if (!GlobalWorkerOptions.workerSrc) {
+    GlobalWorkerOptions.workerSrc =
+      'https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs';
   }
 
   const buf = await file.arrayBuffer();
-  const loadingTask = getDocument({ data: buf });
-  const pdf: PDFDocumentProxy = await loadingTask.promise;
-  
-  const page: PDFPageProxy = await pdf.getPage(pageNum);
+  const pdf = await getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(pageNum);
 
   const viewport = page.getViewport({ scale: 2 });
   const canvas = document.createElement('canvas');
