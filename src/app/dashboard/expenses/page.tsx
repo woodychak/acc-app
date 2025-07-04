@@ -34,12 +34,21 @@ import {
 } from "@/components/ui/popover";
 import * as XLSX from "xlsx";
 
+interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  expense_date: string;
+  // add other properties as needed
+}
+
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState([]);
-  const [filteredExpenses, setFilteredExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [deleteError, setDeleteError] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
@@ -102,7 +111,7 @@ export default function ExpensesPage() {
     setFilteredExpenses(filtered);
   }, [expenses, dateFilter]);
 
-  const handleDeleteClick = (expense) => {
+  const handleDeleteClick = (expense: Expense) => {
     setExpenseToDelete(expense);
     setDeleteDialogOpen(true);
   };
@@ -137,19 +146,39 @@ export default function ExpensesPage() {
     setExpenseToDelete(null);
   };
 
-  const formatCurrency = (amount, currencyCode) => {
+  const formatCurrency = (amount: number, currencyCode: string) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currencyCode || defaultCurrency,
     }).format(amount);
   };
 
-  const handleDateFilterChange = (field, value) => {
+  type DateFilter = {
+    from: string | null;
+    to: string | null;
+  };
+  
+  const handleDateFilterChange = (field: keyof DateFilter, value: string | null) => {
     setDateFilter((prev) => ({ ...prev, [field]: value }));
   };
 
   const clearDateFilter = () => {
     setDateFilter({ from: "", to: "" });
+  };
+
+  type Expense = {
+    id: string;
+    title: string;
+    amount: number;
+    currency_code: string;  // Add this line
+    category?: string;
+    expense_date: string;
+    vendor?: string;
+    payment_method?: string;
+    description?: string;
+    notes?: string;
+    receipt_url?: string;
+    // ...other fields
   };
 
   const exportToExcel = () => {
@@ -173,7 +202,7 @@ export default function ExpensesPage() {
     XLSX.writeFile(wb, fileName);
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
 

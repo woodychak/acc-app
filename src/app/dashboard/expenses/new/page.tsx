@@ -21,7 +21,7 @@ import {
   AlertCircle,
   MousePointer,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, ChangeEvent } from "react";
 import { createClient } from "../../../../../supabase/client";
 import { useRouter } from "next/navigation";
 import { extractReceiptData } from "@/lib/receipt-ocr";
@@ -51,20 +51,45 @@ const PAYMENT_METHODS = [
   "Digital Wallet",
 ];
 
+type ExtractedReceiptData = {
+  amount?: string;
+  vendor?: string;
+  date?: string;
+  category?: string;
+};
+
+type Area = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  imageWidth:  number;
+  imageHeight: number;
+}
+
 export default function NewExpensePage() {
   const router = useRouter();
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [receiptFile, setReceiptFile] = useState(null);
-  const [receiptPreview, setReceiptPreview] = useState(null);
-  const [aiExtractedData, setAiExtractedData] = useState(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [aiExtractedData, setAiExtractedData] = useState<ExtractedReceiptData | null>(null);
   const [error, setError] = useState("");
   const [isSelecting, setIsSelecting] = useState(false);
-  const [selectedArea, setSelectedArea] = useState(null);
-  const [selectionStart, setSelectionStart] = useState(null);
+  const [selectedArea, setSelectedArea] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    displayWidth: number;
+    displayHeight: number;
+    naturalWidth: number;
+    naturalHeight: number;
+  } | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -78,6 +103,7 @@ export default function NewExpensePage() {
     is_reimbursable: false,
     notes: "",
   });
+  type FormField = keyof typeof formData;
   const skipNextClickRef = useRef(false);
   // New states for camera
   const [showCamera, setShowCamera] = useState(false);
@@ -115,11 +141,10 @@ export default function NewExpensePage() {
     }, 150);
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof typeof formData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
   // 1️⃣  at the top of your component body (after state hooks)
-  const imageLocked = isSelecting || selectedArea !== null;
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
 
   // Start camera when showCamera toggled on
@@ -488,14 +513,20 @@ export default function NewExpensePage() {
     setCropArea(newArea);
   };
 
-  /** 🔄 Whenever the user finishes a box, read ONLY that area */
   useEffect(() => {
     if (!selectedArea || !receiptFile) return;
-
+  
     (async () => {
       setAiProcessing(true);
       try {
-        const { amount } = await extractReceiptData(receiptFile, selectedArea);
+        // Convert selectedArea to include legacy fields
+        const areaWithLegacyFields = {
+          ...selectedArea,
+          imageWidth: selectedArea.displayWidth,
+          imageHeight: selectedArea.displayHeight,
+        };
+  
+        const { amount } = await extractReceiptData(receiptFile, areaWithLegacyFields);
         if (amount) {
           setFormData((p) => ({ ...p, amount }));
           setAiExtractedData((p) => ({ ...p, amount }));
@@ -511,7 +542,7 @@ export default function NewExpensePage() {
     })();
   }, [selectedArea, receiptFile]);
 
-  const handleImageMouseDown = (e) => {
+  const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (!isSelecting) return;
     e.preventDefault();
 
@@ -524,7 +555,7 @@ export default function NewExpensePage() {
     setSelectedArea(null);
   };
 
-  const handleImageMouseMove = (e) => {
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
     if (!isSelecting || !isDrawing || !selectionStart) return;
     e.preventDefault();
 
@@ -544,7 +575,7 @@ export default function NewExpensePage() {
     });
   };
 
-  const handleImageMouseUp = (e) => {
+  const handleImageMouseUp = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
     if (!isSelecting || !isDrawing || !selectionStart) return;
     e.preventDefault();
 
@@ -576,24 +607,6 @@ export default function NewExpensePage() {
     skipNextClickRef.current = true;
   };
 
-  const processSelectedArea = async (area) => {
-    if (!receiptFile) return;
-    setAiProcessing(true);
-    try {
-      const extracted = await extractReceiptData(receiptFile, area);
-
-      // 👉 only update the amount
-      if (extracted.amount) {
-        setFormData((prev) => ({ ...prev, amount: extracted.amount }));
-        setAiExtractedData((prev) => ({ ...prev, amount: extracted.amount }));
-      }
-    } catch (err) {
-      console.error("Area OCR failed", err);
-      setError("Failed to read amount in the selected area.");
-    } finally {
-      setAiProcessing(false);
-    }
-  };
 
   const startAreaSelection = () => {
     setIsSelecting(true);
@@ -601,7 +614,7 @@ export default function NewExpensePage() {
     setError("");
   };
 
-  const handleFileSelect = async (event) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -663,7 +676,7 @@ export default function NewExpensePage() {
     }
   };
 
-  const uploadReceiptToStorage = async (file) => {
+  const uploadReceiptToStorage = async (file: File) => {
     const supabase = createClient();
     const {
       data: { user },
@@ -687,7 +700,7 @@ export default function NewExpensePage() {
     return { fileName, publicUrl };
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -732,7 +745,9 @@ export default function NewExpensePage() {
 
       router.push("/dashboard/expenses");
     } catch (err) {
-      setError(err.message || "Failed to create expense");
+      const message =
+        err instanceof Error ? err.message : "Failed to update expense";
+      setError(message);
     } finally {
       setLoading(false);
       setUploadingReceipt(false);

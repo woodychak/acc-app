@@ -1,5 +1,6 @@
 "use client";
 
+
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,17 +11,37 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../../supabase/client";
 import { createInvoiceAction } from "../actions";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Customer} from "@/app/types";
+
+type InvoiceItem = {
+  id: number;
+  product_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate: number;
+};
+
+type Product = {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  tax_rate: number;
+  // other product fields if any
+};
+
 
 export default function NewInvoicePage() {
   const router = useRouter();
   const formRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [invoiceItems, setInvoiceItems] = useState([
     {
@@ -38,10 +59,11 @@ export default function NewInvoicePage() {
   const [discount, setDiscount] = useState(0);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
-  const [companyProfile, setCompanyProfile] = useState(null);
   const [defaultCurrency, setDefaultCurrency] = useState("HKD");
-  const [invoicePrefix, setInvoicePrefix] = useState("INV-");
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("");
+  const [companyProfile, setCompanyProfile] = useState(null);
+  const [invoicePrefix, setInvoicePrefix] = useState("INV-")
+
 
   useEffect(() => {
     // Check authentication
@@ -195,19 +217,23 @@ export default function NewInvoicePage() {
     ]);
   };
 
-  const handleRemoveItem = (index) => {
+  const handleRemoveItem = (index: number) => {
     const newItems = [...invoiceItems];
     newItems.splice(index, 1);
     setInvoiceItems(newItems);
   };
 
-  const handleItemChange = (index, field, value) => {
+  const handleItemChange = <K extends keyof InvoiceItem>(
+    index: number,
+    field: K,
+    value: InvoiceItem[K]
+  ) => {
     const newItems = [...invoiceItems];
     newItems[index][field] = value;
     setInvoiceItems(newItems);
   };
 
-  const handleProductSelect = (product, index) => {
+  const handleProductSelect = (product: Product, index: number) => {
     const newItems = [...invoiceItems];
     newItems[index].product_id = product.id;
     newItems[index].description = product.name;
@@ -217,19 +243,19 @@ export default function NewInvoicePage() {
     setShowProductSearch(false);
   };
 
-  const openProductSearch = (index) => {
+  const openProductSearch = (index: number) => {
     setActiveItemIndex(index);
     setShowProductSearch(true);
   };
 
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: defaultCurrency,
     }).format(amount);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError("");
@@ -245,15 +271,16 @@ export default function NewInvoicePage() {
         return;
       }
 
-      const formData = new FormData(formRef.current);
+      const formData = new FormData(formRef.current!);
 
       // Add calculated values
-      formData.set("subtotal", subtotal);
-      formData.set("tax_amount", taxTotal);
-      formData.set("total_amount", total);
+      formData.set("subtotal", subtotal.toString());
+      formData.set("tax_amount", taxTotal.toString());
+      formData.set("total_amount", total.toString());
 
       // Make sure currency is one of the supported currencies
       const currency = formData.get("currency_code");
+      const currencyStr = typeof currency === "string" ? currency : "";
       const supportedCurrencies = [
         "HKD",
         "USD",
@@ -265,7 +292,7 @@ export default function NewInvoicePage() {
         "AUD",
         "SGD",
       ];
-      if (!supportedCurrencies.includes(currency)) {
+      if (!supportedCurrencies.includes(currencyStr)) {
         formData.set("currency_code", "HKD"); // Default to HKD if not supported
       }
 

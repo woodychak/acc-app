@@ -1,4 +1,10 @@
-declare module 'pdfjs-dist/build/pdf.worker.entry.js?url' {
-    const workerUrl: string;
-    export default workerUrl;
-  }
+// declarations.d.ts
+declare module "*.worker.js?url" {
+  const src: string;
+  export default src;
+}
+
+declare module "*.mjs?url" {
+  const src: string;
+  export default src;
+}

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../../../supabase/server";
 import { deletePaymentAction, markInvoicePaidAction } from "./actions";
+import type { Invoice, InvoiceSelected, PaymentSelected } from "@/app/types";
 
 export default async function PaymentsPage() {
   const supabase = await createServerSupabaseClient();
@@ -32,7 +33,9 @@ export default async function PaymentsPage() {
 
   const defaultCurrency = companyProfile?.default_currency || "HKD";
 
+
   // Fetch unpaid invoices
+  
   const { data: unpaidInvoices, error: unpaidError } = await supabase
     .from("invoices")
     .select(
@@ -46,10 +49,11 @@ export default async function PaymentsPage() {
       status,
       customers (name)
     `,
-    )
+    ) 
     .eq("user_id", user.id) // 👈 Filter by current user
     .in("status", ["draft", "sent", "overdue"])
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true })
+    .returns<InvoiceSelected[]>();
 
   // Fetch recent payments
   const { data: payments, error: paymentsError } = await supabase
@@ -63,12 +67,12 @@ export default async function PaymentsPage() {
       reference_number,
       currency_code,
       invoice_id,
-      invoices (invoice_number, customers (name))
+      invoices:invoice_id (invoice_number, customers (name))
     `,
     )
     .eq("user_id", user.id) // 👈 Filter by current user
     .order("payment_date", { ascending: false })
-    .limit(10);
+    .returns<PaymentSelected[]>();
 
   const formatCurrency = (
     amount: number,
@@ -132,7 +136,8 @@ export default async function PaymentsPage() {
                             {invoice.invoice_number}
                           </Link>
                         </td>
-                        <td className="px-4 py-2">{invoice.customers?.name}</td>
+                        <td className="px-4 py-2">{invoice?.customers?.name ?? "N/A"}
+                        </td>
                         <td className="px-4 py-2">
                           {formatDate(invoice.issue_date)}
                         </td>
@@ -185,7 +190,7 @@ export default async function PaymentsPage() {
                               </Button>
                             </form>
                             <Link
-                              href={`/dashboard/invoices/${invoice.id}/pdf`}
+                              href={`/dashboard/invoices/${invoice.id}`}
                               target="_blank"
                             >
                               <Button size="sm" variant="ghost">
@@ -240,14 +245,14 @@ export default async function PaymentsPage() {
                               href={`/dashboard/invoices/${payment.invoice_id}`}
                               className="text-primary hover:underline"
                             >
-                              {payment.invoices.invoice_number}
+                              {payment.invoices?.invoice_number}
                             </Link>
                           ) : (
                             "N/A"
                           )}
                         </td>
                         <td className="px-4 py-2">
-                          {payment.invoices?.customers?.name || "N/A"}
+                        {payment.invoices?.customers?.name || "N/A"}
                         </td>
                         <td className="px-4 py-2">{payment.payment_method}</td>
                         <td className="px-4 py-2">

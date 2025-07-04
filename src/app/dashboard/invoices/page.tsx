@@ -16,12 +16,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Invoice, Product, Customer, InvoiceItems } from "@/app/types";
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export default function InvoicesPage() {
     fetchInvoices();
   }, []);
 
-  const handleDeleteClick = (invoice) => {
+  const handleDeleteClick = (invoice: Invoice) => {
     setInvoiceToDelete(invoice);
     setDeleteDialogOpen(true);
   };
@@ -93,18 +94,18 @@ export default function InvoicesPage() {
     setInvoiceToDelete(null);
   };
 
-  const formatCurrency = (amount, currencyCode) => {
+  const formatCurrency = (amount: number, currencyCode?: string) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currencyCode || "USD",
     }).format(amount);
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getStatusBadgeClass = (status) => {
+  const getStatusBadgeClass = (status?: string) => {
     switch (status?.toLowerCase()) {
       case "paid":
         return "bg-green-100 text-green-800";

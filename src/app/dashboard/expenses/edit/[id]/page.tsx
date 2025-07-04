@@ -20,7 +20,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, ChangeEvent } from "react";
 import { createClient } from "../../../../../../supabase/client";
 import { useRouter, useParams } from "next/navigation";
 import { updateExpenseAction } from "../../actions";
@@ -60,7 +60,7 @@ export default function EditExpensePage() {
   const router = useRouter();
   const params = useParams();
   const expenseId = params.id as string;
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
@@ -110,14 +110,38 @@ export default function EditExpensePage() {
 
   type FormField = keyof typeof formData;
 
-  // Area selection handlers
-  const startAreaSelection = () => {
-    setIsSelecting(true);
-    setSelectedArea(null);
-    setError("");
-  };
 
-  const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+
+  useEffect(() => {
+    if (!selectedArea || !receiptFile) return;
+  
+    (async () => {
+      setAiProcessing(true);
+      try {
+        // Convert selectedArea to include legacy fields
+        const areaWithLegacyFields = {
+          ...selectedArea,
+          imageWidth: selectedArea.displayWidth,
+          imageHeight: selectedArea.displayHeight,
+        };
+  
+        const { amount } = await extractReceiptData(receiptFile, areaWithLegacyFields);
+        if (amount) {
+          setFormData((p) => ({ ...p, amount }));
+          setAiExtractedData((p) => ({ ...p, amount }));
+        } else {
+          setError("Couldn’t find a number in the selected area.");
+        }
+      } catch (err) {
+        console.error("Area OCR failed", err);
+        setError("Failed to read the selected area.");
+      } finally {
+        setAiProcessing(false);
+      }
+    })();
+  }, [selectedArea, receiptFile]);
+
+  const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (!isSelecting) return;
     e.preventDefault();
 
@@ -181,6 +205,77 @@ export default function EditExpensePage() {
     setSelectionStart(null);
     skipNextClickRef.current = true;
   };
+
+
+  const startAreaSelection = () => {
+    setIsSelecting(true);
+    setSelectedArea(null);
+    setError("");
+  };
+
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    /* Validate type & size */
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
+    if (!isPdf && !isImage) {
+      setError("Please select an image or PDF file");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError("File size must be less than 20 MB");
+      return;
+    }
+
+    /* Generate preview + OCR source */
+    let ocrFile: File;
+    let previewUrl: string;
+
+    if (isPdf) {
+      const pngBlob = await pdfPageToPng(file);
+      ocrFile = new File([pngBlob], file.name + ".png", { type: "image/png" });
+      previewUrl = URL.createObjectURL(pngBlob);
+    } else {
+      // Compress image files
+      ocrFile = await compressImage(file);
+      previewUrl = URL.createObjectURL(ocrFile);
+    }
+
+    setReceiptFile(ocrFile);
+    setReceiptPreview(previewUrl);
+
+    // Reset selection states
+    setSelectedArea(null);
+    setIsSelecting(false);
+    setIsDrawing(false);
+    setSelectionStart(null);
+
+    // Process with OCR (full)
+    setAiProcessing(true);
+    try {
+      const extractedData = await extractReceiptData(ocrFile);
+      setAiExtractedData(extractedData);
+      setFormData((prev) => ({
+        ...prev,
+        amount: extractedData.amount || prev.amount,
+        vendor: extractedData.vendor || prev.vendor,
+        expense_date: extractedData.date || prev.expense_date,
+        category: extractedData.category || prev.category,
+        title: extractedData.vendor
+          ? `Expense from ${extractedData.vendor}`
+          : prev.title,
+      }));
+    } catch (error) {
+      console.error("OCR processing failed:", error);
+      setError("Failed to process receipt. Please enter details manually.");
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
 
   useEffect(() => {
     const fetchExpense = async () => {
@@ -299,70 +394,8 @@ export default function EditExpensePage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    // Validate type & size
-    const isPdf = file.type === "application/pdf";
-    const isImage = file.type.startsWith("image/");
-    if (!isPdf && !isImage) {
-      setError("Please select an image or PDF file");
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      setError("File size must be less than 20 MB");
-      return;
-    }
-
-    // Generate preview + OCR source
-    let ocrFile: File;
-    let previewUrl: string;
-
-    if (isPdf) {
-      const pngBlob = await pdfPageToPng(file);
-      ocrFile = new File([pngBlob], file.name + ".png", { type: "image/png" });
-      previewUrl = URL.createObjectURL(pngBlob);
-    } else {
-      // Compress image files
-      ocrFile = await compressImage(file);
-      previewUrl = URL.createObjectURL(ocrFile);
-    }
-
-    setReceiptFile(ocrFile);
-    setReceiptPreview(previewUrl);
-    setError("");
-
-    // Reset selection states
-    setSelectedArea(null);
-    setIsSelecting(false);
-    setIsDrawing(false);
-    setSelectionStart(null);
-
-    // Process with OCR (full)
-    setAiProcessing(true);
-    try {
-      const extractedData = await extractReceiptData(ocrFile);
-      setAiExtractedData(extractedData);
-      setFormData((prev) => ({
-        ...prev,
-        amount: extractedData.amount || prev.amount,
-        vendor: extractedData.vendor || prev.vendor,
-        expense_date: extractedData.date || prev.expense_date,
-        category: extractedData.category || prev.category,
-        title: extractedData.vendor
-          ? `Expense from ${extractedData.vendor}`
-          : prev.title,
-      }));
-    } catch (error) {
-      console.error("OCR processing failed:", error);
-      setError("Failed to process receipt. Please enter details manually.");
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
-  const uploadReceiptToStorage = async (file) => {
+  const uploadReceiptToStorage = async (file: File) => {
     const supabase = createClient();
     const {
       data: { user },
@@ -395,7 +428,7 @@ export default function EditExpensePage() {
     return { fileName, publicUrl };
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -460,7 +493,9 @@ export default function EditExpensePage() {
 
       router.push("/dashboard/expenses");
     } catch (err) {
-      setError(err.message || "Failed to update expense");
+      const message =
+        err instanceof Error ? err.message : "Failed to update expense";
+      setError(message);
     } finally {
       setLoading(false);
       setUploadingReceipt(false);

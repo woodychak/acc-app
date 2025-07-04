@@ -272,7 +272,7 @@ export async function GET(
       `,
       )
       .eq("id", params.id)
-      .single<Invoice>(); 
+      .single(); 
 
     if (invoiceError || !invoiceData) {
       console.error("Error fetching invoice:", invoiceError);

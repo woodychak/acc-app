@@ -148,17 +148,19 @@ export async function extractReceiptData(
 
   /* ---------- 3.2  OCR ---------- */
   const { data } = await Tesseract.recognize(
-    await imageToProcess.arrayBuffer(),
+    imageToProcess,
     "eng",
     {
-      tessedit_pageseg_mode: (Tesseract as any).PSM.SINGLE_BLOCK,
-      tessedit_ocr_engine_mode: (Tesseract as any).OEM.LSTM_ONLY,
-      tessedit_char_whitelist:
-        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,:-/$%()[]{}",
-      preserve_interword_spaces: "1",
-      user_defined_dpi: "300",
-      tessedit_do_invert: "0",
-    },
+      ...(Tesseract as any).PSM && {}, // keep typings happy if needed
+      config: [
+        `--psm ${(Tesseract as any).PSM.SINGLE_BLOCK}`,
+        `--oem ${(Tesseract as any).OEM.LSTM_ONLY}`,
+        `-c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,:-/$%()[]{} `,
+        `-c preserve_interword_spaces=1`,
+        `-c user_defined_dpi=300`,
+        `-c tessedit_do_invert=0`
+      ],
+    } as any  // <-- cast here to bypass TypeScript errors
   );
 
   const lines = data.text.split(/\n+/).map((l) => l.trim());
@@ -415,8 +417,7 @@ export async function extractReceiptData(
     // Dynamic import keeps pdfjs out of the main bundle until needed
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf");
     // Let pdfjs know where to find the worker; tweak for your build setup
-    pdfjs.GlobalWorkerOptions.workerSrc =
-      "//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    pdfjs.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
 
     const pdfData = new Uint8Array(await file.arrayBuffer());
     const pdfDoc = await pdfjs.getDocument({ data: pdfData }).promise;
