@@ -29,7 +29,7 @@ export default async function InvoiceDetailPage({
       `
       *,
       customers(*),
-      invoice_items(*)
+      invoice_items(*, product:products(name))
     `,
     )
     .eq("id", params.id)
@@ -258,10 +258,15 @@ export default async function InvoiceDetailPage({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {invoice.invoice_items.map((item: any) => (
                     <tr key={item.id}>
-                      <td className="px-6 py-4">
+                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {item.description}
+                          {item.product?.name || "Unnamed Product"}
                         </div>
+                        {(item.product?.description || item.description) && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {item.product?.description || item.description}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.quantity}

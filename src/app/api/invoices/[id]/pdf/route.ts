@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "../../../../../../supabase/server"; // Adjust path as needed
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage, cmyk } from "pdf-lib";
-import type { Invoice, Customer, InvoiceItems, CompanyProfile } from "../../../../types"; // Assuming types.ts is in the same directory or adjust path
+import { Invoice, Customer, InvoiceItems, CompanyProfile } from "../../../../types"; // Assuming types.ts is in the same directory or adjust path
 
 // Helper function to fetch data with retries (basic example)
 async function fetchWithRetry(url: string, retries = 3, delay = 1000): Promise<Response> {
@@ -186,7 +186,7 @@ function drawMultiLineText(
 }
 
 
-async function drawInvoiceTableHeaders(page: PDFPage, y: number, fonts: { regular: PDFFont, bold: PDFFont }, pageWidth: number): Promise<number> {
+async function drawInvoiceTableHeaders(page: PDFPage, y: number, fonts: { regular: PDFFont, bold: PDFFont }, pageWidth: number, currency_code: string): Promise<number> {
   let currentY = y;
   const colWidths = [0.40, 0.15, 0.15, 0.15, 0.15]; 
   const tableWidth = pageWidth - 2 * PageMargin;
@@ -223,7 +223,7 @@ async function drawInvoiceTableHeaders(page: PDFPage, y: number, fonts: { regula
   textWidth = fonts.bold.widthOfTextAtSize(text, FontSizes.tableHeader);
   page.drawText(text, { x: taxRateColX + taxRateColWidth - textWidth, y: currentY, ...headerBaseOptions });
 
-  text = sanitizePdfText("Line Total");
+  text = sanitizePdfText(`Total (${currency_code})`);
   textWidth = fonts.bold.widthOfTextAtSize(text, FontSizes.tableHeader);
   page.drawText(text, { x: lineTotalColX + lineTotalColWidth - textWidth, y: currentY, ...headerBaseOptions });
   
@@ -268,7 +268,7 @@ export async function GET(
         `
         *,
         customer:customers(*), 
-        invoice_items(*)
+        invoice_items(*, product:products(name))
       `,
       )
       .eq("id", params.id)
@@ -396,8 +396,8 @@ export async function GET(
     
     currentY -= SectionSpacing;
 
-    // ======== 3. ITEMS TABLE ========
-currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth);
+   // ======== 3. ITEMS TABLE ========
+currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth, invoice.currency_code);
 
 const tableBottomMargin = PageMargin + 200; // 換頁保留空間
 
@@ -408,7 +408,7 @@ for (const item of invoice.invoice_items) {
     pageHeight = page.getSize().height;
     pageWidth = page.getSize().width;
     currentY = pageHeight - PageMargin;
-    currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth);
+    currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth, invoice.currency_code);
   }
 
   const lineTotalWithTax = calculateLineTotalWithTax(item);
@@ -444,18 +444,36 @@ for (const item of invoice.invoice_items) {
 
   const tempY = currentY;
 
-  // 1. 畫 description 多行文字
+  // 1. 畫 product name（粗體，單行）
+  const productName = item.product?.name || 'Unnamed Product';
+  const productNameFontSize = FontSizes.body -1;
+
+  page.drawText(productName, {
+    x: descriptionX,
+    y: tempY,
+    size: productNameFontSize,
+    font: boldFont,
+    maxWidth: descriptionMaxWidth,
+  });
+
+  // 2. 畫 description（多行）
+  const descStartY = tempY - productNameFontSize - 2;
   const finalDescY = drawMultiLineText(
     page,
-    item.description,
-    tempY,
+    item.product?.description || item.description || '',
+    descStartY,
     descriptionX,
-    { ...optionsForThisRow, maxWidth: descriptionMaxWidth },
+    {
+      ...optionsForThisRow,
+      size: FontSizes.small,
+      maxWidth: descriptionMaxWidth,
+    },
     pageWidth
   );
+
   const descriptionHeight = tempY - finalDescY;
 
-  // 2. 畫其他欄位（跟 description 同行頂部）
+  // 3. 畫右側數值欄（對齊 product name 頂部）
   drawTextLine(page, item.quantity.toString(), tempY, quantityX, {
     ...optionsForThisRow,
     align: 'right',
@@ -499,15 +517,21 @@ for (const item of invoice.invoice_items) {
     }
   );
 
-  // 3. 畫分隔線（在 finalDescY 以下一點）
-  const lineY = finalDescY;
- 
+  // 4. 分隔線
+  const lineY = finalDescY - 2;
+  page.drawLine({
+    start: { x: PageMargin, y: lineY },
+    end: { x: pageWidth - PageMargin, y: lineY },
+    thickness: 0.5,
+    color: Colors.neutralLight,
+  });
 
-  // 4. 移動 Y 軸，為下一項目準備
-  currentY = lineY - 5; // 加點間距讓視覺舒服
+  // 5. 更新 currentY
+  currentY = lineY - 8;
 }
 
 currentY -= SectionSpacing * 0.5;
+
 
     // ======== 4. TOTALS SECTION ========
     const totalsX = pageWidth / 2; 

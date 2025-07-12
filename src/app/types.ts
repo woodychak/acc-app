@@ -58,6 +58,7 @@ export type InvoiceItems = {
   tax_amount: number;
   line_total?: number;
   original_id?: string;
+  product?: Product;
 };
 
 export type Product = {

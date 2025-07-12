@@ -588,40 +588,53 @@ const openProductSearch = (index: number) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {invoiceItems.map((item, index) => (
                         <tr key={item.id}>
-                          <td className="px-6 py-4 align-top max-w-[250px] whitespace-normal break-words text-sm relative">
-  <div className="flex items-start gap-2 mb-1">
+                          <td className="px-6 py-4 relative">
+  <div className="space-y-2">
     <Input
-      type="text"
-      value={item.product_name || ""}
-      placeholder="Product Name"
-      readOnly
-      className="w-full text-gray-600 font-semibold"
+      name={`items[${index}][product_name]`}
+      placeholder="Product name"
+      value={item.product_name}
+      onChange={(e) =>
+        handleItemChange(index, "product_name", e.target.value)
+      }
+      className="w-full text-sm font-medium"
     />
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={() => openProductSearch(index)}
-    >
-      <Search className="h-4 w-4" />
-    </Button>
-    <input
-      type="hidden"
-      name={`items[${index}][product_id]`}
-      value={item.product_id || ""}
+    <Textarea
+      name={`items[${index}][product_description]`}
+      placeholder="Product description"
+      value={item.description}
+      onChange={(e) =>
+        handleItemChange(index, "description", e.target.value)
+      }
+      className="w-full text-xs"
+      rows={2}
     />
+    <div className="flex items-center">
+      <Input
+        name={`items[${index}][description]`}
+        placeholder="Custom line description"
+        value={item.description}
+        onChange={(e) =>
+          handleItemChange(index, "description", e.target.value)
+        }
+        className="w-full"
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => openProductSearch(index)}
+        className="ml-2"
+      >
+        <Search className="h-4 w-4" />
+      </Button>
+      <input
+        type="hidden"
+        name={`items[${index}][product_id]`}
+        value={item.product_id || ""}
+      />
+    </div>
   </div>
-
-  <Textarea
-    name={`items[${index}][description]`}
-    placeholder="Description"
-    value={item.description || ""}
-    onChange={(e) =>
-      handleItemChange(index, "description", e.target.value)
-    }
-    className="w-full"
-    rows={2}
-  />
 
   {showProductSearch && activeItemIndex === index && (
     <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
