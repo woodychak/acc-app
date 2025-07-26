@@ -129,60 +129,61 @@ function drawTextLine(
 function drawMultiLineText(
   page: PDFPage,
   text: string,
-  currentY: number,
+  startY: number,
   x: number,
   options: DrawTextOptions = {},
   pageWidth: number
 ): number {
-  const sanitizedText = sanitizePdfText(text); // Sanitize at the beginning
+  const sanitizedText = sanitizePdfText(text);
   const lines = sanitizedText.split('\n');
-  let y = currentY;
+  let y = startY;
 
-  const effectiveMaxWidth = options.maxWidth ?? (pageWidth - x - PageMargin);
-  
-  const drawOptions: DrawTextOptions = {
-    ...options,
-    maxWidth: effectiveMaxWidth,
-  };
-  
-  const { font, size = FontSizes.body } = drawOptions; 
+  const font = options.font;
+  const size = options.size ?? FontSizes.body;
+  const lineHeight = options.lineHeight ?? size * 1.2;
 
-  for (const line of lines) {
-    let currentLine = line;
-    if (font && effectiveMaxWidth > 0) { 
-      while (font.widthOfTextAtSize(currentLine, size) > effectiveMaxWidth && currentLine.length > 0) {
-        let breakPoint = currentLine.length - 1;
-        while (breakPoint > 0 && font.widthOfTextAtSize(currentLine.substring(0, breakPoint), size) > effectiveMaxWidth) {
-          breakPoint--;
-        }
-        const lastSpace = currentLine.substring(0, breakPoint).lastIndexOf(' ');
-        if (lastSpace !== -1 && font.widthOfTextAtSize(currentLine.substring(0, lastSpace), size) <= effectiveMaxWidth) {
-          breakPoint = lastSpace;
-        } else if (breakPoint === 0 && currentLine.length > 0) { 
-            let tempBreakPoint = 0;
-             while(tempBreakPoint < currentLine.length && font.widthOfTextAtSize(currentLine.substring(0, tempBreakPoint + 1), size) <= effectiveMaxWidth) {
-                 tempBreakPoint++;
-             }
-             breakPoint = Math.max(0, tempBreakPoint -1); 
-             if (breakPoint === 0 && currentLine.length > 1 && font.widthOfTextAtSize(currentLine.substring(0,1), size) > effectiveMaxWidth) {
-                // This case is rare, character too wide. Will likely draw truncated/overflow.
-             } else if (breakPoint === 0 && currentLine.length > 0) {
-                breakPoint = currentLine.substring(0, Math.max(1, effectiveMaxWidth / (font.widthOfTextAtSize("M",size) || 1 ))).length; // Estimate
-             }
-        }
-        
-        const partToDraw = currentLine.substring(0, breakPoint);
-        // Pass sanitized partToDraw (already sanitized as part of `currentLine`)
-        y = drawTextLine(page, partToDraw, y, x, drawOptions); 
-        currentLine = currentLine.substring(breakPoint).trimStart();
+  const maxWidth = options.maxWidth ?? (pageWidth - x - PageMargin);
+
+  for (const rawLine of lines) {
+    let remainingText = rawLine;
+
+    while (remainingText.length > 0) {
+      if (!font || font.widthOfTextAtSize(remainingText, size) <= maxWidth) {
+        // 整行可以容納，直接畫
+        y = drawTextLine(page, remainingText, y, x, {
+          ...options,
+          maxWidth,
+        });
+        y -= lineHeight;
+        break;
       }
-    }
-    if (currentLine.length > 0) {
-       // Pass sanitized currentLine
-       y = drawTextLine(page, currentLine, y, x, drawOptions); 
+
+      // 找可容納的斷點
+      let breakPoint = remainingText.length;
+      while (
+        breakPoint > 0 &&
+        font.widthOfTextAtSize(remainingText.substring(0, breakPoint), size) > maxWidth
+      ) {
+        breakPoint--;
+      }
+
+      // 試著在 breakPoint 左邊找一個空格來斷行
+      const lastSpace = remainingText.lastIndexOf(' ', breakPoint);
+      if (lastSpace > 0) breakPoint = lastSpace;
+
+      const lineToDraw = remainingText.substring(0, breakPoint);
+      y = drawTextLine(page, lineToDraw, y, x, {
+        ...options,
+        maxWidth,
+      });
+      y -= lineHeight;
+
+      remainingText = remainingText.substring(breakPoint).trimStart();
     }
   }
-  return y;
+
+  // 回傳最終 Y 座標（已減過最後一行 lineHeight）
+  return y + lineHeight;
 }
 
 
@@ -357,10 +358,10 @@ export async function GET(
     }
 
     leftY = drawTextLine(page, companyProfile.name, leftY, PageMargin, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker });
-    if (companyProfile.address) leftY = drawMultiLineText(page, companyProfile.address, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark }, pageWidth);
+    if (companyProfile.address) leftY = drawMultiLineText(page, companyProfile.address, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, lineHeight: FontSizes.body * 0.5 }, pageWidth);
     //if (companyProfile.city_state_zip) leftY = drawTextLine(page, companyProfile.city_state_zip, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     //if (companyProfile.country) leftY = drawTextLine(page, companyProfile.country, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
-    if (companyProfile.tel) leftY = drawTextLine(page, `Tel: ${sanitizePdfText(companyProfile.tel)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
+    if (companyProfile.tel) leftY = drawTextLine(page, `Tel: ${sanitizePdfText(companyProfile.tel)}`, leftY - 5, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     if (companyProfile.contact) leftY = drawTextLine(page, `Email: ${sanitizePdfText(companyProfile.contact)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     //if (companyProfile.website) leftY = drawTextLine(page, `Web: ${sanitizePdfText(companyProfile.website)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     //if (companyProfile.tax_id) leftY = drawTextLine(page, `Tax ID: ${sanitizePdfText(companyProfile.tax_id)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, lineHeight: LineHeight *1.5 });
@@ -445,33 +446,39 @@ for (const item of invoice.invoice_items) {
   const tempY = currentY;
 
   // 1. 畫 product name（粗體，單行）
-  const productName = item.product?.name || 'Unnamed Product';
-  const productNameFontSize = FontSizes.body -1;
+const productName = item.product?.name || 'Unnamed Product';
+const productNameFontSize = FontSizes.body - 1;
+const productNameLineHeight = productNameFontSize * 1.2;
 
-  page.drawText(productName, {
-    x: descriptionX,
-    y: tempY,
-    size: productNameFontSize,
-    font: boldFont,
+page.drawText(productName, {
+  x: descriptionX,
+  y: tempY,
+  size: productNameFontSize,
+  font: boldFont,
+});
+
+// 2. 畫 description（多行）
+const descriptionFontSize = FontSizes.small;
+const descriptionLineHeight = descriptionFontSize * 0.55;
+
+const descStartY = tempY - productNameLineHeight;
+
+const finalDescY = drawMultiLineText(
+  page,
+  item.product?.description || item.description || '',
+  descStartY,
+  descriptionX,
+  {
+    font,
+    size: descriptionFontSize,
+    lineHeight: descriptionLineHeight,
     maxWidth: descriptionMaxWidth,
-  });
+    color: Colors.neutralDarker,
+  },
+  pageWidth
+);
 
-  // 2. 畫 description（多行）
-  const descStartY = tempY - productNameFontSize - 2;
-  const finalDescY = drawMultiLineText(
-    page,
-    item.product?.description || item.description || '',
-    descStartY,
-    descriptionX,
-    {
-      ...optionsForThisRow,
-      size: FontSizes.small,
-      maxWidth: descriptionMaxWidth,
-    },
-    pageWidth
-  );
-
-  const descriptionHeight = tempY - finalDescY;
+const descriptionHeight = tempY - finalDescY;
 
   // 3. 畫右側數值欄（對齊 product name 頂部）
   drawTextLine(page, item.quantity.toString(), tempY, quantityX, {
@@ -518,7 +525,7 @@ for (const item of invoice.invoice_items) {
   );
 
   // 4. 分隔線
-  const lineY = finalDescY - 2;
+  const lineY = finalDescY - 5;
   page.drawLine({
     start: { x: PageMargin, y: lineY },
     end: { x: pageWidth - PageMargin, y: lineY },
@@ -527,7 +534,7 @@ for (const item of invoice.invoice_items) {
   });
 
   // 5. 更新 currentY
-  currentY = lineY - 8;
+  currentY = lineY - 10;
 }
 
 currentY -= SectionSpacing * 0.5;
@@ -604,7 +611,7 @@ currentY -= SectionSpacing * 0.5;
         measureY = drawTextLine(page, "Bank Details:", measureY, PageMargin + bankDetailsPadding, { font: boldFont, size: FontSizes.body, color: Colors.transparent });
         measureY = drawMultiLineText(page, companyProfile.bank_account, measureY, PageMargin + bankDetailsPadding, { font: font, size: FontSizes.body, color: Colors.transparent, maxWidth: pageWidth - 2 * (PageMargin + bankDetailsPadding) }, pageWidth);
         const textBlockHeight = currentY - measureY;
-        const bankDetailsRectHeight = textBlockHeight + bankDetailsPadding * 1.5; 
+        const bankDetailsRectHeight = textBlockHeight + bankDetailsPadding * 0.5; 
 
         if (currentY - bankDetailsRectHeight < PageMargin) { 
             page = pdfDoc.addPage([595.28, 841.89]);
@@ -628,7 +635,7 @@ currentY -= SectionSpacing * 0.5;
         
         let actualDrawY = bankDetailsContentY - bankDetailsPadding * 0.5; 
         actualDrawY = drawTextLine(page, "Bank Details:", actualDrawY, PageMargin + bankDetailsPadding, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker });
-        actualDrawY = drawMultiLineText(page, companyProfile.bank_account, actualDrawY, PageMargin + bankDetailsPadding, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: pageWidth - 2 * (PageMargin + bankDetailsPadding) }, pageWidth);
+        actualDrawY = drawMultiLineText(page, companyProfile.bank_account, actualDrawY, PageMargin + bankDetailsPadding, { font: font, size: FontSizes.body, color: Colors.neutralDark, lineHeight: FontSizes.body * 0.7, maxWidth: pageWidth - 2 * (PageMargin + bankDetailsPadding) }, pageWidth);
         currentY = bankDetailsRectY - LineHeight * 0.5; 
     }
 

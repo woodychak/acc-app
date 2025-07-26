@@ -183,6 +183,23 @@ export default function EditInvoicePage({
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredProducts(products);
+      return;
+    }
+  
+    const lowerSearch = searchTerm.toLowerCase();
+  
+    setFilteredProducts(
+      products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lowerSearch) ||
+          (p.sku && p.sku.toLowerCase().includes(lowerSearch))
+      )
+    );
+  }, [searchTerm, products]);
+
   const handleAddItem = () => {
     setInvoiceItems([
       ...invoiceItems,
@@ -611,11 +628,11 @@ const openProductSearch = (index: number) => {
     />
     <div className="flex items-center">
       <Input
-        name={`items[${index}][description]`}
-        placeholder="Custom line description"
-        value={item.description}
+        name={`items[${index}][product_name]`}
+        placeholder="Search Product"
+        value={item.product_name}
         onChange={(e) =>
-          handleItemChange(index, "description", e.target.value)
+          handleItemChange(index, "product_name", e.target.value)
         }
         className="w-full"
       />
