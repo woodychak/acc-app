@@ -4,8 +4,8 @@ import { ArrowLeft, Download, Send, Printer } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../../../../supabase/server";
-import { generateInvoicePdfAction } from "../actions";
 import Image from "next/image";
+import PrintButton from "@/components/PrintButton";
 
 export default async function InvoiceDetailPage({
   params,
@@ -121,6 +121,7 @@ export default async function InvoiceDetailPage({
                 <h1 className="text-3xl font-bold">
                   Invoice {invoice.invoice_number}
                 </h1>
+                
                 <p className="text-muted-foreground">
                   {formatDate(invoice.issue_date)}
                 </p>
@@ -132,14 +133,15 @@ export default async function InvoiceDetailPage({
                   <Download className="h-4 w-4 mr-2" /> Save PDF
                 </Button>
               </form>
-              <Button variant="outline">
-                <Printer className="h-4 w-4 mr-2" /> Print
-              </Button>
+              
+                <PrintButton />
+              
               <Button>
                 <Send className="h-4 w-4 mr-2" /> Send to Customer
               </Button>
             </div>
           </div>
+          <div className="print-area">
 
           <div className="bg-white rounded-xl p-8 border shadow-sm print:shadow-none">
             {/* Invoice Header */}
@@ -335,6 +337,7 @@ export default async function InvoiceDetailPage({
                 </p>
               </div>
             )}
+            </div>
           </div>
         </div>
       </main>
