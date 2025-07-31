@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "../../../../supabase/server";
+import { useState } from "react";
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import Image from "next/image";
+import { CompanyProfileForm } from "@/components/CompanyProfileForm";
+import { FormMessage, Message } from "@/components/form-message";
+import { useFormState } from "react-dom";
 import { uploadCompanyLogoAction, updateCompanyProfileAction } from "./actions";
 
 export default async function CompanyProfilePage() {
@@ -197,169 +201,9 @@ export default async function CompanyProfilePage() {
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-4">Company Profile</h1>
 
-          {isSetup && (
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-              <p className="text-blue-700">
-                <strong>Welcome to your new account!</strong> Please complete
-                your company profile to continue.
-              </p>
-            </div>
-          )}
-
-          <form
-            action={updateCompanyProfileAction}
-            className="space-y-6"
-            key="profile-form"
-          >
-            <input type="hidden" name="id" value={data.id} />
-            {/* Pass setup parameter if it exists in URL */}
-            {isSetup && <input type="hidden" name="setup" value="required" />}
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Company Name</Label>
-              <Input id="name" name="name" defaultValue={data.name || ""} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tel">Tel</Label>
-              <Input id="tel" name="tel" defaultValue={data.tel || ""} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                name="address"
-                rows={3}
-                defaultValue={data.address || ""}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact">Contact Info</Label>
-              <Input
-                id="contact"
-                name="contact"
-                defaultValue={data.contact || ""}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="prefix">Invoice Prefix</Label>
-              <Input
-                id="prefix"
-                name="prefix"
-                defaultValue={data.prefix || "INV-"}
-                placeholder="INV-"
-              />
-              <p className="text-xs text-muted-foreground">
-                This prefix will be used for all new invoice numbers
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="default_currency">Default Currency</Label>
-              <select
-                id="default_currency"
-                name="default_currency"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                defaultValue={data.default_currency || "HKD"}
-              >
-                <option value="HKD">HKD - Hong Kong Dollar</option>
-                <option value="USD">USD - US Dollar</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="JPY">JPY - Japanese Yen</option>
-                <option value="CNY">CNY - Chinese Yuan</option>
-                <option value="CAD">CAD - Canadian Dollar</option>
-                <option value="AUD">AUD - Australian Dollar</option>
-                <option value="SGD">SGD - Singapore Dollar</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment_terms">Payment Terms</Label>
-              <Textarea
-                id="payment_terms"
-                name="payment_terms"
-                rows={3}
-                defaultValue={data.payment_terms || ""}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bank_account">Bank Account Details</Label>
-              <Textarea
-                id="bank_account"
-                name="bank_account"
-                rows={3}
-                defaultValue={data.bank_account || ""}
-                placeholder={`Bank Name: ABC Bank\nAccount Name: Your Company Ltd\nAccount Number: 1234567890\nSort Code/SWIFT: ABCDEF12`}
-              />
-              <p className="text-xs text-muted-foreground">
-                This information will be available when recording payments
-              </p>
-            </div>
-            <div className="flex justify-end">
-              <Button type="submit">Save Profile</Button>
-            </div>
-          </form>
-
-          {/* Logo Section */}
-          <div className="space-y-6 mt-12">
-            <div className="space-y-2">
-              <Label>Logo</Label>
-              <Image
-                src={logoSrc}
-                alt="Company Logo"
-                width={200}
-                height={200}
-                className="rounded border p-2 bg-white"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your logo will appear on invoices and your company profile
-              </p>
-            </div>
-
-            {/* Upload Logo File
-            <form
-              action={uploadCompanyLogoAction}
-              encType="multipart/form-data"
-              method="post"
-              className="space-y-2"
-              key="upload-logo-form"
-            >
-              <Input
-                type="file"
-                id="logo_upload"
-                name="logo"
-                accept="image/*"
-                required
-              />
-              <Button type="submit" className="mt-2">
-                Upload Logo
-              </Button>
-            </form> */}
-
-            {/* Provide Logo URL */}
-            <form
-              action={updateCompanyProfileAction}
-              className="space-y-2"
-              key="logo-url-form"
-            >
-              <input type="hidden" name="id" value={data.id} />
-              <Input
-                id="logo_url"
-                name="logo_url"
-                placeholder="https://example.com/logo.png"
-                defaultValue={data.logo_url || ""}
-              />
-              <Button type="submit" className="mt-2">
-                Save Logo URL
-              </Button>
-            </form>
+<CompanyProfileForm data={data} isSetup={isSetup} />
           </div>
-        </div>
+        
       </main>
     </>
   );

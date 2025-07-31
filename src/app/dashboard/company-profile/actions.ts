@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { CompanyProfile } from "@/app/types";
 
-export async function updateCompanyProfileAction(formData: FormData) {
+export async function updateCompanyProfileAction(
+  prevState: any,
+  formData: FormData
+): Promise<{ type: "success" | "error"; message: string } | undefined> {
   const supabase = await createServerSupabaseClient();
 
   const {
@@ -65,6 +68,7 @@ export async function updateCompanyProfileAction(formData: FormData) {
   if (isSetup && updateData.is_complete) {
     return redirect("/dashboard");
   }
+  return { type: "success", message: "公司資料已成功更新。" };
 }
 
 export async function uploadCompanyLogoAction(formData: FormData) {
