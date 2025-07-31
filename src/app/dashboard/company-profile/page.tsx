@@ -321,7 +321,7 @@ export default async function CompanyProfilePage() {
               </p>
             </div>
 
-            {/* Upload Logo File */}
+            {/* Upload Logo File
             <form
               action={uploadCompanyLogoAction}
               encType="multipart/form-data"
@@ -339,7 +339,7 @@ export default async function CompanyProfilePage() {
               <Button type="submit" className="mt-2">
                 Upload Logo
               </Button>
-            </form>
+            </form> */}
 
             {/* Provide Logo URL */}
             <form
