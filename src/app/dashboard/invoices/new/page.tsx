@@ -509,11 +509,11 @@ export default function NewInvoicePage() {
     />
     <div className="flex items-center">
       <Input
-        name={`items[${index}][product_name]`}
-        placeholder="search product"
-        value={item.product_name}
+        name={`items[${index}][description]`}
+        placeholder="Custom line description"
+        value={item.description}
         onChange={(e) =>
-          handleItemChange(index, "product_name", e.target.value)
+          handleItemChange(index, "description", e.target.value)
         }
         className="w-full"
       />
