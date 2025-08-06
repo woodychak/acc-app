@@ -628,11 +628,11 @@ const openProductSearch = (index: number) => {
     />
     <div className="flex items-center">
       <Input
-        name={`items[${index}][product_name]`}
-        placeholder="Search Product"
-        value={item.product_name}
+        name={`items[${index}][description]`}
+        placeholder="Search description"
+        value={item.description}
         onChange={(e) =>
-          handleItemChange(index, "product_name", e.target.value)
+          handleItemChange(index, "description", e.target.value)
         }
         className="w-full"
       />
