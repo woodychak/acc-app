@@ -12,7 +12,13 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../../../supabase/server";
-import { getFinancialReports } from "./actions";
+import {
+  getFinancialReports,
+  downloadRevenueReport,
+  downloadExpenseReport,
+  downloadCashFlowReport,
+} from "./actions";
+import { DownloadButton } from "./download-button";
 
 export default async function ReportsPage() {
   const supabase = await createServerSupabaseClient();
@@ -50,15 +56,24 @@ export default async function ReportsPage() {
             </div>
             {hasData && (
               <div className="flex gap-2">
-                <Button variant="outline">
+                <DownloadButton
+                  action={downloadRevenueReport}
+                  variant="outline"
+                >
                   <Download className="mr-2 h-4 w-4" /> Export Revenue Report
-                </Button>
-                <Button variant="outline">
+                </DownloadButton>
+                <DownloadButton
+                  action={downloadExpenseReport}
+                  variant="outline"
+                >
                   <Download className="mr-2 h-4 w-4" /> Export Expense Report
-                </Button>
-                <Button variant="outline">
+                </DownloadButton>
+                <DownloadButton
+                  action={downloadCashFlowReport}
+                  variant="outline"
+                >
                   <Download className="mr-2 h-4 w-4" /> Export Cash Flow Report
-                </Button>
+                </DownloadButton>
               </div>
             )}
           </div>
@@ -335,9 +350,9 @@ export default async function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {reportData.payments.slice(0, 5).map((payment) => (
+                    {reportData.payments.slice(0, 5).map((payment, index) => (
                       <div
-                        key={payment.id}
+                        key={payment.id || index}
                         className="flex justify-between items-center"
                       >
                         <div>

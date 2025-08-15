@@ -20,6 +20,7 @@ export async function getFinancialReports() {
       .from("payments")
       .select(
         `
+        id,
         amount,
         currency_code,
         payment_date,
@@ -154,5 +155,78 @@ export async function generateFinancialReport(
     reportType,
     generatedAt: new Date().toISOString(),
     data,
+  };
+}
+
+export async function downloadRevenueReport() {
+  const data = await getFinancialReports();
+
+  // Generate CSV content for revenue report
+  const csvHeaders = "Date,Customer,Invoice Number,Amount,Payment Method\n";
+  const csvRows = data.payments
+    .map((payment) => {
+      const date = new Date(payment.payment_date).toLocaleDateString();
+      const customer = payment.invoices?.customers?.name || "Unknown Customer";
+      const invoiceNumber = payment.invoices?.invoice_number || "N/A";
+      const amount = payment.amount;
+      const method = payment.payment_method || "N/A";
+      return `"${date}","${customer}","${invoiceNumber}","${amount}","${method}"`;
+    })
+    .join("\n");
+
+  return {
+    filename: `revenue-report-${new Date().toISOString().split("T")[0]}.csv`,
+    content: csvHeaders + csvRows,
+    contentType: "text/csv",
+  };
+}
+
+export async function downloadExpenseReport() {
+  const data = await getFinancialReports();
+
+  // Generate CSV content for expense report
+  const csvHeaders = "Date,Title,Category,Amount,Payment Method,Description\n";
+  const csvRows = data.expenses
+    .map((expense) => {
+      const date = new Date(expense.expense_date).toLocaleDateString();
+      const title = expense.title || "N/A";
+      const category = expense.category || "Other";
+      const amount = expense.amount;
+      const method = expense.payment_method || "N/A";
+      const description = expense.description || "";
+      return `"${date}","${title}","${category}","${amount}","${method}","${description}"`;
+    })
+    .join("\n");
+
+  return {
+    filename: `expense-report-${new Date().toISOString().split("T")[0]}.csv`,
+    content: csvHeaders + csvRows,
+    contentType: "text/csv",
+  };
+}
+
+export async function downloadCashFlowReport() {
+  const data = await getFinancialReports();
+
+  // Generate CSV content for cash flow report
+  const csvHeaders = "Month,Revenue,Expenses,Net Cash Flow\n";
+  const allMonths = new Set([
+    ...Object.keys(data.revenueByMonth),
+    ...Object.keys(data.expensesByMonth),
+  ]);
+
+  const csvRows = Array.from(allMonths)
+    .map((month) => {
+      const revenue = data.revenueByMonth[month] || 0;
+      const expenses = data.expensesByMonth[month] || 0;
+      const netFlow = revenue - expenses;
+      return `"${month}","${revenue}","${expenses}","${netFlow}"`;
+    })
+    .join("\n");
+
+  return {
+    filename: `cashflow-report-${new Date().toISOString().split("T")[0]}.csv`,
+    content: csvHeaders + csvRows,
+    contentType: "text/csv",
   };
 }
