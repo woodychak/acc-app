@@ -217,7 +217,7 @@ export default async function ReportsPage() {
                               {category}
                             </span>
                             <span className="text-sm font-medium">
-                              {formatCurrency(amount)}
+                            {formatCurrency(Number(amount) || 0)}
                             </span>
                           </div>
                         ))}
@@ -357,11 +357,10 @@ export default async function ReportsPage() {
                       >
                         <div>
                           <p className="text-sm font-medium">
-                            {payment.invoices?.customers?.name ||
-                              "Unknown Customer"}
+                          {payment.invoices?.[0]?.customers?.[0]?.name || "Unknown Customer"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {payment.invoices?.invoice_number} •{" "}
+                          {payment.invoices?.[0]?.invoice_number || "N/A"} •{" "}
                             {new Date(
                               payment.payment_date,
                             ).toLocaleDateString()}
