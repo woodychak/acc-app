@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../../supabase/server";
+import { getDashboardData } from "./actions";
 
 export default async function Dashboard() {
   const supabase = await createServerSupabaseClient();
@@ -25,6 +26,15 @@ export default async function Dashboard() {
   if (!user) {
     return redirect("/sign-in");
   }
+
+  const dashboardData = await getDashboardData();
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount);
+  };
 
   // Dashboard modules
   const modules = [
@@ -98,9 +108,13 @@ export default async function Dashboard() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">$0.00</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency(dashboardData.totalRevenue)}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    No revenue recorded yet
+                    {dashboardData.totalRevenue > 0
+                      ? "From recorded payments"
+                      : "No revenue recorded yet"}
                   </p>
                 </CardContent>
               </Card>
@@ -112,9 +126,13 @@ export default async function Dashboard() {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">$0.00</div>
+                  <div className="text-2xl font-bold text-amber-600">
+                    {formatCurrency(dashboardData.totalOutstanding)}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    No outstanding invoices
+                    {dashboardData.totalOutstanding > 0
+                      ? "From unpaid invoices"
+                      : "No outstanding invoices"}
                   </p>
                 </CardContent>
               </Card>
@@ -126,9 +144,13 @@ export default async function Dashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {dashboardData.totalCustomers}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    No customers added yet
+                    {dashboardData.totalCustomers > 0
+                      ? "Active customers"
+                      : "No customers added yet"}
                   </p>
                 </CardContent>
               </Card>
