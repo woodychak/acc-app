@@ -3,6 +3,7 @@
 import { encodedRedirect } from "@/utils/utils";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "../../supabase/server";
 
 // Function to check if any users exist and create a default admin if none exis
@@ -359,7 +360,7 @@ export const sendInvoiceEmailAction = async (formData: FormData) => {
       );
 
       // Create a mock request object (URL doesn't matter since we're calling directly)
-      const mockRequest = new Request(
+      const mockRequest = new NextRequest(
         `http://localhost/api/invoices/${invoiceId}/pdf`,
       );
 

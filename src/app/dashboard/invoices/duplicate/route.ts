@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const result = await duplicateInvoiceAction(formData);
+    const invoiceId = formData.get("invoice_id") as string;
+    const result = await duplicateInvoiceAction(invoiceId);
 
     // Return the result as JSON instead of redirecting
     if (result?.error) {
