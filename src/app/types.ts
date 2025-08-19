@@ -82,10 +82,10 @@ export type Payment = {
   invoices: {
     invoice_number: string;
 
-    // Again plural customers per your select()
+    // customers is a single object, not an array
     customers: {
       name: string;
-    };
+    } | null;
   } | null; // invoices can be null if join fails
 };
 
@@ -102,10 +102,10 @@ export type PaymentSelected = {
   invoices: {
     invoice_number: string;
 
-    // Again plural customers per your select()
+    // customers is a single object, not an array
     customers: {
       name: string;
-    };
+    } | null;
   } | null; // invoices can be null if join fails
 };
 
