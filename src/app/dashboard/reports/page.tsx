@@ -357,11 +357,12 @@ export default async function ReportsPage() {
                       >
                         <div>
                           <p className="text-sm font-medium">
-                            {payment.invoices?.customers?.name ||
+                            {(payment.invoices as any)?.customers?.name ||
                               "Unknown Customer"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {payment.invoices?.invoice_number || "N/A"} •{" "}
+                            {(payment.invoices as any)?.invoice_number || "N/A"}{" "}
+                            •{" "}
                             {new Date(
                               payment.payment_date,
                             ).toLocaleDateString()}
