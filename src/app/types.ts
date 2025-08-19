@@ -79,11 +79,11 @@ export type Payment = {
   invoice_id: string;
 
   // Nested invoice object inside payment
-  invoices: {
+  invoices?: {
     invoice_number: string;
 
     // customers is a single object, not an array
-    customers: {
+    customers?: {
       name: string;
     } | null;
   } | null; // invoices can be null if join fails
@@ -99,11 +99,11 @@ export type PaymentSelected = {
   invoice_id: string;
 
   // Nested invoice object inside payment
-  invoices: {
+  invoices?: {
     invoice_number: string;
 
     // customers is a single object, not an array
-    customers: {
+    customers?: {
       name: string;
     } | null;
   } | null; // invoices can be null if join fails

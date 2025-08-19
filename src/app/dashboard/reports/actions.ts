@@ -166,8 +166,8 @@ export async function downloadRevenueReport() {
   const csvRows = data.payments
     .map((payment) => {
       const date = new Date(payment.payment_date).toLocaleDateString();
-      const customer = payment.invoices?.[0]?.customers?.[0]?.name || "Unknown Customer";
-      const invoiceNumber = payment.invoices?.[0]?.invoice_number || "N/A";
+      const customer = payment.invoices?.customers?.name || "Unknown Customer";
+      const invoiceNumber = payment.invoices?.invoice_number || "N/A";
       const amount = payment.amount;
       const method = payment.payment_method || "N/A";
       return `"${date}","${customer}","${invoiceNumber}","${amount}","${method}"`;
