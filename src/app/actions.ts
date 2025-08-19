@@ -5,7 +5,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../supabase/server";
 
-
 // Function to check if any users exist and create a default admin if none exis
 
 export const signUpAction = async (formData: FormData) => {
@@ -17,7 +16,11 @@ export const signUpAction = async (formData: FormData) => {
   const origin = headers().get("origin");
 
   if (!email || !password) {
-    return encodedRedirect("error", "/sign-up", "Email and password are required");
+    return encodedRedirect(
+      "error",
+      "/sign-up",
+      "Email and password are required",
+    );
   }
 
   try {
@@ -46,7 +49,7 @@ export const signUpAction = async (formData: FormData) => {
       return encodedRedirect(
         "success",
         "/sign-in",
-        "Please check your email to confirm your account before signing in."
+        "Please check your email to confirm your account before signing in.",
       );
     }
 
@@ -110,14 +113,16 @@ export const signUpAction = async (formData: FormData) => {
       console.error("Could not disable RLS:", disableErr);
     }
 
-    const { error: insertCompanyError } = await supabase.from("company_profile").insert({
-      name: companyName || fullName + "'s Company",
-      prefix: "INV-",
-      default_currency: "HKD",
-      user_id: user.id,
-      created_at: new Date().toISOString(),
-      is_complete: false,
-    });
+    const { error: insertCompanyError } = await supabase
+      .from("company_profile")
+      .insert({
+        name: companyName || fullName + "'s Company",
+        prefix: "INV-",
+        default_currency: "HKD",
+        user_id: user.id,
+        created_at: new Date().toISOString(),
+        is_complete: false,
+      });
 
     if (insertCompanyError) {
       console.error("Company profile insert failed:", insertCompanyError);
@@ -227,6 +232,247 @@ export const signOutAction = async () => {
   return redirect("/sign-in");
 };
 
+export const duplicateInvoiceAction = async (invoiceId: string) => {
+  "use server";
+
+  const supabase = await createServerSupabaseClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  try {
+    // Get the original invoice with items
+    const { data: originalInvoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select(
+        `
+        *,
+        invoice_items(*)
+      `,
+      )
+      .eq("id", invoiceId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (invoiceError || !originalInvoice) {
+      return { error: "Invoice not found" };
+    }
+
+    // Return the invoice data for duplication
+    return {
+      success: true,
+      invoiceData: {
+        customer_id: originalInvoice.customer_id,
+        currency_code: originalInvoice.currency_code,
+        notes: originalInvoice.notes || "",
+        discount_amount: originalInvoice.discount_amount || 0,
+        items: originalInvoice.invoice_items.map((item: any) => ({
+          product_id: item.product_id || "",
+          product_name: item.product_name || "",
+          description: item.description || "",
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || 0,
+          tax_rate: item.tax_rate || 0,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("Error duplicating invoice:", error);
+    return { error: "Failed to duplicate invoice" };
+  }
+};
+
+export const sendInvoiceEmailAction = async (formData: FormData) => {
+  "use server";
+
+  const supabase = await createServerSupabaseClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+
+  const invoiceId = formData.get("invoice_id") as string;
+
+  try {
+    // Get invoice with customer data
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select(
+        `
+        *,
+        customers(*)
+      `,
+      )
+      .eq("id", invoiceId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (invoiceError || !invoice) {
+      console.error("Invoice not found:", invoiceError);
+      throw new Error("Invoice not found");
+    }
+
+    // Get company profile with SMTP settings
+    const { data: companyProfile, error: profileError } = await supabase
+      .from("company_profile")
+      .select("*")
+      .eq("user_id", user.id)
+      .limit(1)
+      .single();
+
+    if (profileError || !companyProfile) {
+      console.error("Company profile not found:", profileError);
+      throw new Error("Company profile not found");
+    }
+
+    // Check if SMTP is configured
+    if (
+      !companyProfile.smtp_host ||
+      !companyProfile.smtp_username ||
+      !companyProfile.smtp_password
+    ) {
+      console.error("SMTP not configured properly");
+      throw new Error("SMTP not configured properly");
+    }
+
+    // Check if customer has email
+    if (!invoice.customers?.email) {
+      console.error("Customer email not found");
+      throw new Error("Customer email not found");
+    }
+
+    // Generate PDF attachment by calling the PDF generation function directly
+    let pdfBuffer: ArrayBuffer;
+    try {
+      // Import the PDF generation function from the route file
+      const { GET: generatePDF } = await import(
+        "./api/invoices/[id]/pdf/route"
+      );
+
+      // Create a mock request object (URL doesn't matter since we're calling directly)
+      const mockRequest = new Request(
+        `http://localhost/api/invoices/${invoiceId}/pdf`,
+      );
+
+      // Call the PDF generation function directly
+      const pdfResponse = await generatePDF(mockRequest, {
+        params: { id: invoiceId },
+      });
+
+      if (!pdfResponse.ok) {
+        const errorText = await pdfResponse.text();
+        console.error("PDF generation failed:", pdfResponse.status, errorText);
+        throw new Error("PDF generation failed");
+      }
+
+      pdfBuffer = await pdfResponse.arrayBuffer();
+    } catch (pdfError) {
+      console.error("Error generating PDF attachment:", pdfError);
+      throw new Error("PDF generation failed");
+    }
+
+    // Prepare email template
+    let emailBody =
+      companyProfile.email_template ||
+      "Dear {customer_name},\n\nPlease find attached your invoice {invoice_number}.\n\nThank you for your business!\n\nBest regards,\n{company_name}";
+
+    // Replace placeholders
+    emailBody = emailBody
+      .replace(/{customer_name}/g, invoice.customers.name || "Valued Customer")
+      .replace(/{invoice_number}/g, invoice.invoice_number)
+      .replace(/{company_name}/g, companyProfile.name || "Your Company")
+      .replace(
+        /{total_amount}/g,
+        new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: invoice.currency_code || "USD",
+        }).format(invoice.total_amount),
+      )
+      .replace(/{due_date}/g, new Date(invoice.due_date).toLocaleDateString());
+
+    // Send email using Nodemailer with SMTP settings from company profile
+    try {
+      const nodemailer = require("nodemailer");
+
+      // Create transporter with SMTP settings from company profile
+      const transporter = nodemailer.createTransport({
+        host: companyProfile.smtp_host,
+        port: companyProfile.smtp_port || 587,
+        secure:
+          companyProfile.smtp_secure === "SSL" ||
+          companyProfile.smtp_port === 465,
+        auth: {
+          user: companyProfile.smtp_username,
+          pass: companyProfile.smtp_password,
+        },
+        // Add connection timeout and other options
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 5000, // 5 seconds
+        socketTimeout: 10000, // 10 seconds
+      });
+
+      // Verify SMTP connection
+      try {
+        await transporter.verify();
+        console.log("SMTP connection verified successfully");
+      } catch (verifyError: any) {
+        console.error("SMTP verification failed:", verifyError);
+        throw new Error(`SMTP verification failed: ${verifyError.message}`);
+      }
+
+      const senderAddress =
+        companyProfile.smtp_sender || companyProfile.smtp_username;
+      const mailOptions = {
+        from: `"${companyProfile.name}" <${senderAddress}>`,
+        to: invoice.customers.email,
+        subject: `Invoice ${invoice.invoice_number} from ${companyProfile.name}`,
+        text: emailBody,
+        html: emailBody.replace(/\n/g, "<br>"),
+        attachments: [
+          {
+            filename: `invoice-${invoice.invoice_number}.pdf`,
+            content: Buffer.from(pdfBuffer),
+            contentType: "application/pdf",
+          },
+        ],
+      };
+
+      // Send the email
+      const info = await transporter.sendMail(mailOptions);
+      console.log("Email sent successfully:", info.messageId);
+
+      // Update invoice status to 'sent' if it was 'draft'
+      if (invoice.status === "draft") {
+        const { error: updateError } = await supabase
+          .from("invoices")
+          .update({ status: "sent" })
+          .eq("id", invoiceId);
+
+        if (updateError) {
+          console.error("Error updating invoice status:", updateError);
+        }
+      }
+
+      return { success: true, message: "Email sent successfully" };
+    } catch (emailError: any) {
+      console.error("Error sending email:", emailError);
+      throw new Error(`Email sending failed: ${emailError.message}`);
+    }
+  } catch (error: any) {
+    console.error("Unexpected error in sendInvoiceEmailAction:", error);
+    throw error;
+  }
+};
+
 export const createCustomerAction = async (formData: FormData) => {
   "use server";
 
@@ -316,6 +562,70 @@ export const updateCustomerAction = async (formData: FormData) => {
   }
 
   redirect("/dashboard/customers");
+};
+
+export const testSmtpAction = async (formData: FormData) => {
+  "use server";
+
+  const supabase = await createServerSupabaseClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+
+  const smtp_host = formData.get("smtp_host") as string;
+  const smtp_port = formData.get("smtp_port") as string;
+  const smtp_username = formData.get("smtp_username") as string;
+  const smtp_password = formData.get("smtp_password") as string;
+  const smtp_secure = formData.get("smtp_secure") as string;
+  const smtp_sender = formData.get("smtp_sender") as string;
+  const test_email = formData.get("test_email") as string;
+
+  if (!smtp_host || !smtp_username || !smtp_password || !test_email) {
+    throw new Error("Missing required SMTP settings or test email");
+  }
+
+  try {
+    const nodemailer = require("nodemailer");
+
+    const transporter = nodemailer.createTransport({
+      host: smtp_host,
+      port: parseInt(smtp_port) || 587,
+      secure: smtp_secure === "SSL" || parseInt(smtp_port) === 465,
+      auth: {
+        user: smtp_username,
+        pass: smtp_password,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
+    });
+
+    // Verify SMTP connection
+    await transporter.verify();
+
+    // Send test email
+    const senderAddress = smtp_sender || smtp_username;
+    const mailOptions = {
+      from: `"Test Email" <${senderAddress}>`,
+      to: test_email,
+      subject: "SMTP Test Email",
+      text: "This is a test email to verify your SMTP settings are working correctly.",
+      html: "<p>This is a test email to verify your SMTP settings are working correctly.</p>",
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Test email sent successfully:", info.messageId);
+
+    return { success: true, message: "Test email sent successfully!" };
+  } catch (error: any) {
+    console.error("SMTP test failed:", error);
+    throw new Error(`SMTP test failed: ${error.message}`);
+  }
 };
 
 export const updateCompanyProfileAction = async (formData: FormData) => {

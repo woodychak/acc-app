@@ -1,4 +1,3 @@
-
 "use client";
 
 import DashboardNavbar from "@/components/dashboard-navbar";
@@ -23,10 +22,10 @@ export default function EditInvoicePage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  
+
   // Change the type annotation here to explicitly allow null or empty array
   const [customers, setCustomers] = useState<Customer[] | null>(null);
-  
+
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -159,27 +158,27 @@ export default function EditInvoicePage({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-  
+
       if (!user) {
         window.location.href = "/sign-in";
         return;
       }
-  
+
       // Fetch invoice, items...（你應該已有這部分）
-  
+
       // Fetch products
       const { data: productsData } = await supabase
         .from("products")
         .select("*")
         .eq("user_id", user.id)
         .order("name", { ascending: true });
-  
+
       if (productsData) {
         setProducts(productsData);
         setFilteredProducts(productsData); // ⭐ 重要
       }
     };
-  
+
     fetchData();
   }, []);
 
@@ -188,15 +187,15 @@ export default function EditInvoicePage({
       setFilteredProducts(products);
       return;
     }
-  
+
     const lowerSearch = searchTerm.toLowerCase();
-  
+
     setFilteredProducts(
       products.filter(
         (p) =>
           p.name.toLowerCase().includes(lowerSearch) ||
-          (p.sku && p.sku.toLowerCase().includes(lowerSearch))
-      )
+          (p.sku && p.sku.toLowerCase().includes(lowerSearch)),
+      ),
     );
   }, [searchTerm, products]);
 
@@ -224,33 +223,30 @@ export default function EditInvoicePage({
   const handleItemChange = (
     index: number,
     field: keyof InvoiceItems,
-    value: string | number | undefined
+    value: string | number | undefined,
   ) => {
     const newItems = [...invoiceItems];
     (newItems[index] as any)[field] = value; // 用 any 暫時跳過型別檢查
     setInvoiceItems(newItems);
   };
-  
 
+  // 選擇產品
+  const handleProductSelect = (product: Product, index: number) => {
+    const newItems = [...invoiceItems];
+    newItems[index].product_id = product.id;
+    newItems[index].product_name = product.name; // for UI only
+    newItems[index].description = product.description;
+    newItems[index].unit_price = product.price;
+    newItems[index].tax_rate = product.tax_rate || 0;
+    setInvoiceItems(newItems);
+    setShowProductSearch(false);
+  };
 
-// 選擇產品
-const handleProductSelect = (product: Product, index: number) => {
-  const newItems = [...invoiceItems];
-  newItems[index].product_id = product.id;
-  newItems[index].product_name = product.name; // for UI only
-  newItems[index].description = product.description;
-  newItems[index].unit_price = product.price;
-  newItems[index].tax_rate = product.tax_rate || 0;
-  setInvoiceItems(newItems);
-  setShowProductSearch(false);
-};
-
-
-// 打開產品搜尋視窗
-const openProductSearch = (index: number) => {
-  setActiveItemIndex(index);
-  setShowProductSearch(true);
-};
+  // 打開產品搜尋視窗
+  const openProductSearch = (index: number) => {
+    setActiveItemIndex(index);
+    setShowProductSearch(true);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -283,10 +279,10 @@ const openProductSearch = (index: number) => {
       }
       formData.append("id", invoice.id);
 
-       // Add calculated values
-  formData.set("subtotal", subtotal.toString());
-  formData.set("tax_amount", taxTotal.toString());
-  formData.set("total_amount", total.toString());
+      // Add calculated values
+      formData.set("subtotal", subtotal.toString());
+      formData.set("tax_amount", taxTotal.toString());
+      formData.set("total_amount", total.toString());
 
       // Add invoice items with their original IDs if they exist
       invoiceItems.forEach((item, index) => {
@@ -389,12 +385,14 @@ const openProductSearch = (index: number) => {
       console.error("Error updating invoice:", error);
       if (error instanceof Error) {
         setError(
-          error.message || "Failed to update invoice. Please check all fields and try again."
+          error.message ||
+            "Failed to update invoice. Please check all fields and try again.",
         );
       } else {
-        setError("Failed to update invoice. Please check all fields and try again.");
+        setError(
+          "Failed to update invoice. Please check all fields and try again.",
+        );
       }
-    
     } finally {
       setIsSubmitting(false);
     }
@@ -606,85 +604,107 @@ const openProductSearch = (index: number) => {
                       {invoiceItems.map((item, index) => (
                         <tr key={item.id}>
                           <td className="px-6 py-4 relative">
-  <div className="space-y-2">
-    <Input
-      name={`items[${index}][product_name]`}
-      placeholder="Product name"
-      value={item.product_name}
-      onChange={(e) =>
-        handleItemChange(index, "product_name", e.target.value)
-      }
-      className="w-full text-sm font-medium"
-    />
-    <Textarea
-      name={`items[${index}][product_description]`}
-      placeholder="Product description"
-      value={item.description}
-      onChange={(e) =>
-        handleItemChange(index, "description", e.target.value)
-      }
-      className="w-full text-xs"
-      rows={2}
-    />
-    <div className="flex items-center">
-      <Input
-        name={`items[${index}][description]`}
-        placeholder="Search description"
-        value={item.description}
-        onChange={(e) =>
-          handleItemChange(index, "description", e.target.value)
-        }
-        className="w-full"
-      />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => openProductSearch(index)}
-        className="ml-2"
-      >
-        <Search className="h-4 w-4" />
-      </Button>
-      <input
-        type="hidden"
-        name={`items[${index}][product_id]`}
-        value={item.product_id || ""}
-      />
-    </div>
-  </div>
+                            <div className="space-y-2">
+                              <Input
+                                name={`items[${index}][product_name]`}
+                                placeholder="Product name"
+                                value={item.product_name || ""}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "product_name",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full text-sm font-medium"
+                              />
+                              <Textarea
+                                name={`items[${index}][product_description]`}
+                                placeholder="Product description"
+                                value={item.description || ""}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "description",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full text-xs"
+                                rows={2}
+                              />
+                              <div className="flex items-center">
+                                <Input
+                                  name={`items[${index}][description]`}
+                                  placeholder="Search description"
+                                  value={item.description || ""}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "description",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openProductSearch(index)}
+                                  className="ml-2"
+                                >
+                                  <Search className="h-4 w-4" />
+                                </Button>
+                                <input
+                                  type="hidden"
+                                  name={`items[${index}][product_id]`}
+                                  value={item.product_id || ""}
+                                />
+                              </div>
+                            </div>
 
-  {showProductSearch && activeItemIndex === index && (
-    <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
-      <div className="p-2 sticky top-0 bg-white border-b">
-        <Input
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full"
-          autoFocus
-        />
-      </div>
-      <ul className="max-h-80 overflow-y-auto">
-        {filteredProducts.map((product) => (
-          <li
-            key={product.id}
-            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-            onClick={() => handleProductSelect(product, index)}
-          >
-            <div className="font-medium">{product.name}</div>
-            <div className="text-sm text-gray-500 flex justify-between">
-              <span>{product.sku}</span>
-              <span>{formatCurrency(product.price)}</span>
-            </div>
-          </li>
-        ))}
-        {filteredProducts.length === 0 && (
-          <li className="px-4 py-2 text-gray-500">No products found</li>
-        )}
-      </ul>
-    </div>
-  )}
-</td>
+                            {showProductSearch && activeItemIndex === index && (
+                              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
+                                <div className="p-2 sticky top-0 bg-white border-b">
+                                  <Input
+                                    placeholder="Search products..."
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                      setSearchTerm(e.target.value)
+                                    }
+                                    className="w-full"
+                                    autoFocus
+                                  />
+                                </div>
+                                <ul className="max-h-80 overflow-y-auto">
+                                  {filteredProducts.map((product) => (
+                                    <li
+                                      key={product.id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                      onClick={() =>
+                                        handleProductSelect(product, index)
+                                      }
+                                    >
+                                      <div className="font-medium">
+                                        {product.name}
+                                      </div>
+                                      <div className="text-sm text-gray-500 flex justify-between">
+                                        <span>{product.sku}</span>
+                                        <span>
+                                          {formatCurrency(product.price)}
+                                        </span>
+                                      </div>
+                                    </li>
+                                  ))}
+                                  {filteredProducts.length === 0 && (
+                                    <li className="px-4 py-2 text-gray-500">
+                                      No products found
+                                    </li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Input
                               name={`items[${index}][quantity]`}

@@ -17,8 +17,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Invoice, Product, Customer, InvoiceItems } from "@/app/types";
+import { duplicateInvoiceAction } from "@/app/actions";
+import { useRouter } from "next/navigation";
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -120,6 +123,27 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleDuplicateClick = async (invoice: Invoice) => {
+    try {
+      const result = await duplicateInvoiceAction(invoice.id);
+
+      if (result.success && result.invoiceData) {
+        // Store the invoice data in sessionStorage
+        sessionStorage.setItem(
+          "duplicateInvoiceData",
+          JSON.stringify(result.invoiceData),
+        );
+
+        // Navigate to the new invoice page
+        router.push("/dashboard/invoices/new");
+      } else {
+        console.error("Failed to duplicate invoice:", result.error);
+      }
+    } catch (error) {
+      console.error("Error duplicating invoice:", error);
+    }
+  };
+
   return (
     <>
       <DashboardNavbar />
@@ -191,6 +215,14 @@ export default function InvoicesPage() {
                             Edit
                           </Button>
                         </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDuplicateClick(invoice)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Duplicate
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

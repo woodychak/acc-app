@@ -43,12 +43,10 @@ export default async function CompanyProfilePage() {
     .limit(1)
     .single();
 
-  console.log("Company profile query result:", { data, error: error?.message });
-
   // If none exists, create an empty profile for this user and reload
   if (error || !data) {
     console.log("No company profile found, creating one now...");
-  
+
     // First try to disable RLS for this operation
     try {
       try {
@@ -59,7 +57,6 @@ export default async function CompanyProfilePage() {
         // Continue anyway, the insert might still work with admin client
       }
 
-      
       const { data: newProfile, error: createError } = await supabase
         .from("company_profile")
         .insert({
@@ -68,6 +65,11 @@ export default async function CompanyProfilePage() {
           default_currency: "HKD",
           user_id: user.id,
           is_complete: false,
+          smtp_host: null,
+          smtp_port: null,
+          smtp_username: null,
+          smtp_password: null,
+          email_template: null,
         });
 
       if (createError) {
@@ -103,7 +105,6 @@ export default async function CompanyProfilePage() {
           } catch (sqlErr) {
             console.error("Exception in SQL execution:", sqlErr);
 
-            
             try {
               await new Promise((resolve) => setTimeout(resolve, 1000));
               const { error: finalError } = await supabase
@@ -201,9 +202,8 @@ export default async function CompanyProfilePage() {
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-4">Company Profile</h1>
 
-<CompanyProfileForm data={data} isSetup={isSetup} />
-          </div>
-        
+          <CompanyProfileForm data={data} isSetup={isSetup} />
+        </div>
       </main>
     </>
   );

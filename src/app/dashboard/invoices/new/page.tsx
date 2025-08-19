@@ -1,6 +1,5 @@
 "use client";
 
-
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,7 @@ import { createClient } from "../../../../../supabase/client";
 import { createInvoiceAction } from "../actions";
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Customer} from "@/app/types";
+import { Customer } from "@/app/types";
 
 type InvoiceItem = {
   id: number;
@@ -34,7 +33,6 @@ type Product = {
   description: string;
   // other product fields if any
 };
-
 
 export default function NewInvoicePage() {
   const router = useRouter();
@@ -65,10 +63,47 @@ export default function NewInvoicePage() {
   const [defaultCurrency, setDefaultCurrency] = useState("HKD");
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("");
   const [companyProfile, setCompanyProfile] = useState(null);
-  const [invoicePrefix, setInvoicePrefix] = useState("INV-")
-
+  const [invoicePrefix, setInvoicePrefix] = useState("INV-");
 
   useEffect(() => {
+    // Check for duplicate data in sessionStorage
+    const duplicateData = sessionStorage.getItem("duplicateInvoiceData");
+
+    if (duplicateData) {
+      try {
+        const parsedData = JSON.parse(duplicateData);
+
+        // Set discount
+        if (parsedData.discount_amount) {
+          setDiscount(parsedData.discount_amount);
+        }
+
+        // Set invoice items
+        if (parsedData.items && parsedData.items.length > 0) {
+          const duplicatedItems = parsedData.items.map(
+            (item: any, index: number) => ({
+              id: index,
+              product_id: item.product_id || "",
+              product_name: item.product_name || "",
+              description: item.description || "",
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              tax_rate: item.tax_rate || 0,
+            }),
+          );
+          setInvoiceItems(duplicatedItems);
+        }
+
+        // Store the parsed data to use after components are loaded
+        window.duplicateInvoiceData = parsedData;
+
+        // Clear the sessionStorage
+        sessionStorage.removeItem("duplicateInvoiceData");
+      } catch (error) {
+        console.error("Error parsing duplicate data:", error);
+      }
+    }
+
     // Check authentication
     const checkAuth = async () => {
       const supabase = createClient();
@@ -117,6 +152,50 @@ export default function NewInvoicePage() {
         if (profileData.prefix) {
           setInvoicePrefix(profileData.prefix);
         }
+      }
+
+      // Apply duplicate data after all data is loaded
+      if ((window as any).duplicateInvoiceData) {
+        const duplicateData = (window as any).duplicateInvoiceData;
+
+        // Set customer
+        if (duplicateData.customer_id) {
+          setTimeout(() => {
+            const customerSelect = document.getElementById(
+              "customer_id",
+            ) as HTMLSelectElement;
+            if (customerSelect) {
+              customerSelect.value = duplicateData.customer_id;
+            }
+          }, 1000);
+        }
+
+        // Set currency
+        if (duplicateData.currency_code) {
+          setTimeout(() => {
+            const currencySelect = document.getElementById(
+              "currency_code",
+            ) as HTMLSelectElement;
+            if (currencySelect) {
+              currencySelect.value = duplicateData.currency_code;
+            }
+          }, 1000);
+        }
+
+        // Set notes
+        if (duplicateData.notes) {
+          setTimeout(() => {
+            const notesTextarea = document.getElementById(
+              "notes",
+            ) as HTMLTextAreaElement;
+            if (notesTextarea) {
+              notesTextarea.value = duplicateData.notes;
+            }
+          }, 1000);
+        }
+
+        // Clear the stored data
+        delete (window as any).duplicateInvoiceData;
       }
 
       // Get latest invoice number for the current user
@@ -230,7 +309,7 @@ export default function NewInvoicePage() {
   const handleItemChange = <K extends keyof InvoiceItem>(
     index: number,
     field: K,
-    value: InvoiceItem[K]
+    value: InvoiceItem[K],
   ) => {
     const newItems = [...invoiceItems];
     newItems[index][field] = value;
@@ -487,85 +566,107 @@ export default function NewInvoicePage() {
                       {invoiceItems.map((item, index) => (
                         <tr key={item.id}>
                           <td className="px-6 py-4 relative">
-  <div className="space-y-2">
-    <Input
-      name={`items[${index}][product_name]`}
-      placeholder="Product name"
-      value={item.product_name}
-      onChange={(e) =>
-        handleItemChange(index, "product_name", e.target.value)
-      }
-      className="w-full text-sm font-medium"
-    />
-    <Textarea
-      name={`items[${index}][product_description]`}
-      placeholder="Product description"
-      value={item.description}
-      onChange={(e) =>
-        handleItemChange(index, "description", e.target.value)
-      }
-      className="w-full text-xs"
-      rows={2}
-    />
-    <div className="flex items-center">
-      <Input
-        name={`items[${index}][description]`}
-        placeholder="Custom line description"
-        value={item.description}
-        onChange={(e) =>
-          handleItemChange(index, "description", e.target.value)
-        }
-        className="w-full"
-      />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => openProductSearch(index)}
-        className="ml-2"
-      >
-        <Search className="h-4 w-4" />
-      </Button>
-      <input
-        type="hidden"
-        name={`items[${index}][product_id]`}
-        value={item.product_id || ""}
-      />
-    </div>
-  </div>
+                            <div className="space-y-2">
+                              <Input
+                                name={`items[${index}][product_name]`}
+                                placeholder="Product name"
+                                value={item.product_name || ""}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "product_name",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full text-sm font-medium"
+                              />
+                              <Textarea
+                                name={`items[${index}][product_description]`}
+                                placeholder="Product description"
+                                value={item.description || ""}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "description",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full text-xs"
+                                rows={2}
+                              />
+                              <div className="flex items-center">
+                                <Input
+                                  name={`items[${index}][description]`}
+                                  placeholder="Custom line description"
+                                  value={item.description || ""}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "description",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openProductSearch(index)}
+                                  className="ml-2"
+                                >
+                                  <Search className="h-4 w-4" />
+                                </Button>
+                                <input
+                                  type="hidden"
+                                  name={`items[${index}][product_id]`}
+                                  value={item.product_id || ""}
+                                />
+                              </div>
+                            </div>
 
-  {showProductSearch && activeItemIndex === index && (
-    <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
-      <div className="p-2 sticky top-0 bg-white border-b">
-        <Input
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full"
-          autoFocus
-        />
-      </div>
-      <ul className="max-h-80 overflow-y-auto">
-        {filteredProducts.map((product) => (
-          <li
-            key={product.id}
-            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-            onClick={() => handleProductSelect(product, index)}
-          >
-            <div className="font-medium">{product.name}</div>
-            <div className="text-sm text-gray-500 flex justify-between">
-              <span>{product.sku}</span>
-              <span>{formatCurrency(product.price)}</span>
-            </div>
-          </li>
-        ))}
-        {filteredProducts.length === 0 && (
-          <li className="px-4 py-2 text-gray-500">No products found</li>
-        )}
-      </ul>
-    </div>
-  )}
-</td>
+                            {showProductSearch && activeItemIndex === index && (
+                              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
+                                <div className="p-2 sticky top-0 bg-white border-b">
+                                  <Input
+                                    placeholder="Search products..."
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                      setSearchTerm(e.target.value)
+                                    }
+                                    className="w-full"
+                                    autoFocus
+                                  />
+                                </div>
+                                <ul className="max-h-80 overflow-y-auto">
+                                  {filteredProducts.map((product) => (
+                                    <li
+                                      key={product.id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                      onClick={() =>
+                                        handleProductSelect(product, index)
+                                      }
+                                    >
+                                      <div className="font-medium">
+                                        {product.name}
+                                      </div>
+                                      <div className="text-sm text-gray-500 flex justify-between">
+                                        <span>{product.sku}</span>
+                                        <span>
+                                          {formatCurrency(product.price)}
+                                        </span>
+                                      </div>
+                                    </li>
+                                  ))}
+                                  {filteredProducts.length === 0 && (
+                                    <li className="px-4 py-2 text-gray-500">
+                                      No products found
+                                    </li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Input
                               name={`items[${index}][quantity]`}

@@ -26,9 +26,7 @@ export type Invoice = {
     address: string;
     phone: string;
   };
-  
 };
-
 
 export interface InvoiceCustomer {
   name: string;
@@ -44,7 +42,6 @@ export interface InvoiceSelected {
   status: string;
   customers?: InvoiceCustomer | null;
 }
-
 
 export type InvoiceItems = {
   id?: string | number;
@@ -62,7 +59,7 @@ export type InvoiceItems = {
 };
 
 export type Product = {
-  is_active: boolean;  // 加這行
+  is_active: boolean; // 加這行
   id: string;
   name: string;
   description: string;
@@ -70,7 +67,6 @@ export type Product = {
   price: number;
   tax_rate?: number;
   currency_code?: string;
-
 };
 
 export type Payment = {
@@ -90,7 +86,7 @@ export type Payment = {
     customers: {
       name: string;
     };
-  } | null;  // invoices can be null if join fails
+  } | null; // invoices can be null if join fails
 };
 
 export type PaymentSelected = {
@@ -110,25 +106,22 @@ export type PaymentSelected = {
     customers: {
       name: string;
     };
-  } | null;  // invoices can be null if join fails
+  } | null; // invoices can be null if join fails
 };
 
-export interface Customer  {
+export interface Customer {
   id: string;
   name: string;
   email?: string;
   address?: string;
-  
-};
+}
 
-export interface Customers  {
+export interface Customers {
   id: string;
   name: string;
   email?: string;
   address?: string;
-  
-};
-
+}
 
 export type CompanyProfile = {
   id: string;
@@ -142,6 +135,12 @@ export type CompanyProfile = {
   bank_account: string;
   logo_url?: string;
   is_complete: boolean; // 確保這行有
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
+  smtp_password?: string;
+  email_template?: string;
+  user_id: string;
   // 更多欄位...
 };
 
@@ -153,4 +152,3 @@ export type CustomerSummary = {
 export type InvoiceWithCustomer = Invoice & {
   customers?: CustomerSummary; // 注意是 customers
 };
-
