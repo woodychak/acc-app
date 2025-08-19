@@ -113,7 +113,7 @@ export default async function PaymentsPage() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-muted">
-                      <th className="px-4 py-2 text-left">Invoice #</th>
+                      <th className="px-4 py-2 text-left w-[150px]">Invoice #</th>
                       <th className="px-4 py-2 text-left">Customer</th>
                       <th className="px-4 py-2 text-left">Issue Date</th>
                       <th className="px-4 py-2 text-left">Due Date</th>
@@ -222,7 +222,7 @@ export default async function PaymentsPage() {
                   <thead>
                     <tr className="bg-muted">
                       <th className="px-4 py-2 text-left">Date</th>
-                      <th className="px-4 py-2 text-left">Invoice</th>
+                      <th className="px-4 py-2 text-left w-[150px]">Invoice</th>
                       <th className="px-4 py-2 text-left">Customer</th>
                       <th className="px-4 py-2 text-left">Method</th>
                       <th className="px-4 py-2 text-left">Reference</th>
