@@ -18,6 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Product } from "@/app/types";
 
 export default function ProductsPage() {
@@ -26,6 +33,8 @@ export default function ProductsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [deleteError, setDeleteError] = useState("");
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -54,7 +63,7 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
-  const handleDeleteClick = (product: Product) =>  {
+  const handleDeleteClick = (product: Product) => {
     setProductToDelete(product);
     setDeleteDialogOpen(true);
   };
@@ -84,6 +93,21 @@ export default function ProductsPage() {
     }).format(amount);
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(products.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedProducts = products.slice(startIndex, endIndex);
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(Number(value));
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   return (
     <>
       <DashboardNavbar />
@@ -96,11 +120,25 @@ export default function ProductsPage() {
                 Manage your product catalog
               </p>
             </div>
-            <Link href="/dashboard/products/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Add Product
-              </Button>
-            </Link>
+            <div className="flex gap-2 items-center">
+              <Select
+                value={pageSize.toString()}
+                onValueChange={handlePageSizeChange}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">Show 25</SelectItem>
+                  <SelectItem value="50">Show 50</SelectItem>
+                </SelectContent>
+              </Select>
+              <Link href="/dashboard/products/new">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Add Product
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {loading ? (
@@ -109,6 +147,34 @@ export default function ProductsPage() {
             </div>
           ) : products && products.length > 0 ? (
             <div className="bg-card rounded-xl p-4 border shadow-sm">
+              <div className="mb-4 flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to{" "}
+                  {Math.min(endIndex, products.length)} of {products.length}{" "}
+                  products
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="flex items-center px-3 text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
               <table className="w-full table-auto text-sm">
                 <thead>
                   <tr className="text-left border-b">
@@ -121,7 +187,7 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
+                  {paginatedProducts.map((product) => (
                     <tr key={product.id} className="border-b">
                       <td className="p-2">{product.name}</td>
                       <td className="p-2">{product.sku}</td>

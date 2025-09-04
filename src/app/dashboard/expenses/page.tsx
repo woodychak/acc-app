@@ -32,6 +32,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import * as XLSX from "xlsx";
 
 interface Expense {
@@ -53,6 +60,8 @@ export default function ExpensesPage() {
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
   const [filterOpen, setFilterOpen] = useState(false);
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -157,8 +166,11 @@ export default function ExpensesPage() {
     from: string | null;
     to: string | null;
   };
-  
-  const handleDateFilterChange = (field: keyof DateFilter, value: string | null) => {
+
+  const handleDateFilterChange = (
+    field: keyof DateFilter,
+    value: string | null,
+  ) => {
     setDateFilter((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -170,7 +182,7 @@ export default function ExpensesPage() {
     id: string;
     title: string;
     amount: number;
-    currency_code: string;  // Add this line
+    currency_code: string; // Add this line
     category?: string;
     expense_date: string;
     vendor?: string;
@@ -206,6 +218,21 @@ export default function ExpensesPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredExpenses.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedExpenses = filteredExpenses.slice(startIndex, endIndex);
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(Number(value));
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   return (
     <>
       <DashboardNavbar />
@@ -218,7 +245,19 @@ export default function ExpensesPage() {
                 Track and manage your business expenses
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <Select
+                value={pageSize.toString()}
+                onValueChange={handlePageSizeChange}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">Show 25</SelectItem>
+                  <SelectItem value="50">Show 50</SelectItem>
+                </SelectContent>
+              </Select>
               <Popover open={filterOpen} onOpenChange={setFilterOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline">
@@ -284,6 +323,34 @@ export default function ExpensesPage() {
             </div>
           ) : filteredExpenses && filteredExpenses.length > 0 ? (
             <div className="bg-card rounded-xl p-4 border shadow-sm">
+              <div className="mb-4 flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to{" "}
+                  {Math.min(endIndex, filteredExpenses.length)} of{" "}
+                  {filteredExpenses.length} expenses
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="flex items-center px-3 text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
               <table className="w-full table-auto text-sm">
                 <thead>
                   <tr className="text-left border-b">
@@ -297,7 +364,7 @@ export default function ExpensesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredExpenses.map((expense) => (
+                  {paginatedExpenses.map((expense) => (
                     <tr key={expense.id} className="border-b">
                       <td className="p-2 font-medium">{expense.title}</td>
                       <td className="p-2">
