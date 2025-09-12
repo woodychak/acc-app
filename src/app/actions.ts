@@ -24,97 +24,62 @@ export const signUpAction = async (formData: FormData) => {
     );
   }
 
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-        data: {
-          full_name: fullName,
-          email,
-          company_name: companyName,
-        },
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?redirect_to=/dashboard/company-profile?setup=required`,
+      data: {
+        full_name: fullName,
+        email,
+        company_name: companyName,
       },
+    },
+  });
+
+  if (error) {
+    console.error("Signup error:", error.code, error.message);
+    return encodedRedirect("error", "/sign-up", error.message);
+  }
+
+  if (!user) {
+    return encodedRedirect(
+      "success",
+      "/sign-up",
+      "Please check your email to confirm your account before signing in.",
+    );
+  }
+
+  // If user is created but not confirmed, show success message
+  if (!user.email_confirmed_at) {
+    return encodedRedirect(
+      "success",
+      "/sign-up",
+      "Please check your email and click the confirmation link to activate your account.",
+    );
+  }
+
+  // If we reach here, the user is confirmed, so create user record and company profile
+  try {
+    // Insert user record
+    const { error: insertError } = await supabase.from("users").insert({
+      id: user.id,
+      name: fullName,
+      full_name: fullName,
+      email,
+      user_id: user.id,
+      token_identifier: user.id,
     });
 
-    if (error) {
-      console.error(error.code + " " + error.message);
-      return encodedRedirect("error", "/sign-up", error.message);
-    }
-
-    if (!user) {
-      return encodedRedirect(
-        "success",
-        "/sign-in",
-        "Please check your email to confirm your account before signing in.",
-      );
-    }
-
-    // Insert user record
-    let updateError;
-    try {
-      const { error: insertError } = await supabase.from("users").insert({
-        id: user.id,
-        name: fullName,
-        full_name: fullName,
-        email,
-        user_id: user.id,
-        token_identifier: user.id,
-      });
-      updateError = insertError;
-    } catch (err) {
-      console.error("Exception inserting user record:", err);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const { error: retryError } = await supabase.from("users").insert({
-        id: user.id,
-        name: fullName,
-        full_name: fullName,
-        email,
-        user_id: user.id,
-        token_identifier: user.id,
-      });
-      updateError = retryError;
-    }
-
-    if (updateError) {
-      console.error("Error updating user profile:", updateError);
+    if (insertError) {
+      console.error("Error inserting user record:", insertError);
     }
 
     // Create company profile
-    let companyError;
-
-    try {
-      // Try RPC
-      const { error: rpcError } = await supabase.rpc("create_company_profile", {
-        p_name: companyName || fullName + "'s Company",
-        p_prefix: "INV-",
-        p_default_currency: "HKD",
-        p_user_id: user.id,
-        p_is_complete: false,
-      });
-
-      if (!rpcError) {
-        console.log("Company profile created via RPC.");
-        return redirect("/dashboard/company-profile?setup=required");
-      }
-
-      console.error("RPC create_company_profile failed:", rpcError);
-    } catch (rpcException) {
-      console.error("Exception in RPC create_company_profile:", rpcException);
-    }
-
-    // Try insert fallback
-    try {
-      await supabase.rpc("disable_rls_for_company_profile");
-    } catch (disableErr) {
-      console.error("Could not disable RLS:", disableErr);
-    }
-
-    const { error: insertCompanyError } = await supabase
+    const { error: companyError } = await supabase
       .from("company_profile")
       .insert({
         name: companyName || fullName + "'s Company",
@@ -125,15 +90,14 @@ export const signUpAction = async (formData: FormData) => {
         is_complete: false,
       });
 
-    if (insertCompanyError) {
-      console.error("Company profile insert failed:", insertCompanyError);
-      companyError = insertCompanyError;
+    if (companyError) {
+      console.error("Error creating company profile:", companyError);
     }
   } catch (err) {
-    console.error("Unexpected error during signup process:", err);
+    console.error("Error during user/company setup:", err);
   }
 
-  // Always redirect to company-profile setup page
+  // Redirect to company profile setup
   return redirect("/dashboard/company-profile?setup=required");
 };
 

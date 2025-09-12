@@ -14,9 +14,33 @@ export default async function Signup(props: {
   const searchParams = await props.searchParams;
   if ("message" in searchParams) {
     return (
-      <div className="flex h-screen w-full flex-1 items-center justify-center p-4 sm:max-w-md">
-        <FormMessage message={searchParams} />
-      </div>
+      <>
+        <Navbar />
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
+            <FormMessage message={searchParams} />
+            {searchParams.type === "success" && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Didn't receive the email? Check your spam folder or{" "}
+                  <Link
+                    href="/sign-up"
+                    className="text-primary font-medium hover:underline"
+                  >
+                    try signing up again
+                  </Link>
+                </p>
+                <Link
+                  href="/sign-in"
+                  className="text-primary font-medium hover:underline"
+                >
+                  Back to Sign In
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -103,13 +127,17 @@ export default async function Signup(props: {
 
               <SubmitButton
                 formAction={signUpAction}
-                pendingText="Signing up..."
+                pendingText="Creating account..."
                 className="w-full"
               >
-                Sign up
+                Create Account
               </SubmitButton>
 
               <FormMessage message={searchParams} />
+              
+              <div className="text-xs text-muted-foreground text-center">
+                By signing up, you'll receive a confirmation email to verify your account.
+              </div>
             </form>
           </UrlProvider>
         </div>
