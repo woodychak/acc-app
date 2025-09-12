@@ -67,7 +67,8 @@ export default function EditExpensePage() {
   const [aiProcessing, setAiProcessing] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
-  const [aiExtractedData, setAiExtractedData] = useState<ExtractedReceiptData | null>(null);
+  const [aiExtractedData, setAiExtractedData] =
+    useState<ExtractedReceiptData | null>(null);
   const [error, setError] = useState("");
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedArea, setSelectedArea] = useState<{
@@ -80,10 +81,22 @@ export default function EditExpensePage() {
     naturalWidth: number;
     naturalHeight: number;
   } | null>(null);
-  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const skipNextClickRef = useRef(false);
+  const [currencies, setCurrencies] = useState<
+    Array<{
+      id: string;
+      code: string;
+      name: string;
+      symbol: string;
+      is_default: boolean;
+    }>
+  >([]);
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
@@ -110,11 +123,9 @@ export default function EditExpensePage() {
 
   type FormField = keyof typeof formData;
 
-
-
   useEffect(() => {
     if (!selectedArea || !receiptFile) return;
-  
+
     (async () => {
       setAiProcessing(true);
       try {
@@ -124,8 +135,11 @@ export default function EditExpensePage() {
           imageWidth: selectedArea.displayWidth,
           imageHeight: selectedArea.displayHeight,
         };
-  
-        const { amount } = await extractReceiptData(receiptFile, areaWithLegacyFields);
+
+        const { amount } = await extractReceiptData(
+          receiptFile,
+          areaWithLegacyFields,
+        );
         if (amount) {
           setFormData((p) => ({ ...p, amount }));
           setAiExtractedData((p) => ({ ...p, amount }));
@@ -154,7 +168,9 @@ export default function EditExpensePage() {
     setSelectedArea(null);
   };
 
-  const handleImageMouseMove = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+  const handleImageMouseMove = (
+    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
+  ) => {
     if (!isSelecting || !isDrawing || !selectionStart) return;
     e.preventDefault();
 
@@ -174,7 +190,9 @@ export default function EditExpensePage() {
     });
   };
 
-  const handleImageMouseUp = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+  const handleImageMouseUp = (
+    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
+  ) => {
     if (!isSelecting || !isDrawing || !selectionStart) return;
     e.preventDefault();
 
@@ -206,15 +224,15 @@ export default function EditExpensePage() {
     skipNextClickRef.current = true;
   };
 
-
   const startAreaSelection = () => {
     setIsSelecting(true);
     setSelectedArea(null);
     setError("");
   };
 
-
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -276,7 +294,6 @@ export default function EditExpensePage() {
     }
   };
 
-
   useEffect(() => {
     const fetchExpense = async () => {
       const supabase = createClient();
@@ -295,6 +312,17 @@ export default function EditExpensePage() {
         .eq("id", expenseId)
         .eq("user_id", user.id)
         .single();
+
+      // Get currencies for the current user
+      const { data: currenciesData } = await supabase
+        .from("currencies")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("code", { ascending: true });
+
+      setCurrencies(currenciesData || []);
 
       if (error) {
         setError("Expense not found");
@@ -393,7 +421,6 @@ export default function EditExpensePage() {
   const handleInputChange = (field: FormField, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
 
   const uploadReceiptToStorage = async (file: File) => {
     const supabase = createClient();
@@ -729,11 +756,11 @@ export default function EditExpensePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="CAD">HKD</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                          <SelectItem value="CAD">CAD</SelectItem>
+                          {currencies.map((currency) => (
+                            <SelectItem key={currency.id} value={currency.code}>
+                              {currency.code} - {currency.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

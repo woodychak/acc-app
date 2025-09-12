@@ -15,6 +15,19 @@ export async function getFinancialReports() {
   }
 
   try {
+    // Get company profile for default currency
+    const { data: companyProfile, error: companyError } = await supabase
+      .from("company_profiles")
+      .select("default_currency")
+      .eq("user_id", user.id)
+      .single();
+
+    if (companyError) {
+      console.error("Error fetching company profile:", companyError);
+    }
+
+    const defaultCurrency = companyProfile?.default_currency || "USD";
+
     // Get revenue data from payments
     const { data: payments, error: paymentsError } = await supabase
       .from("payments")
@@ -75,7 +88,38 @@ export async function getFinancialReports() {
       console.error("Error fetching outstanding invoices:", outstandingError);
     }
 
-    // Calculate totals
+    // Group data by currency
+    const revenueByCurrency =
+      payments?.reduce(
+        (acc, payment) => {
+          const currency = payment.currency_code || defaultCurrency;
+          acc[currency] = (acc[currency] || 0) + Number(payment.amount);
+          return acc;
+        },
+        {} as Record<string, number>,
+      ) || {};
+
+    const expensesByCurrency =
+      expenses?.reduce(
+        (acc, expense) => {
+          const currency = expense.currency_code || defaultCurrency;
+          acc[currency] = (acc[currency] || 0) + Number(expense.amount);
+          return acc;
+        },
+        {} as Record<string, number>,
+      ) || {};
+
+    const outstandingByCurrency =
+      outstandingInvoices?.reduce(
+        (acc, invoice) => {
+          const currency = invoice.currency_code || defaultCurrency;
+          acc[currency] = (acc[currency] || 0) + Number(invoice.total_amount);
+          return acc;
+        },
+        {} as Record<string, number>,
+      ) || {};
+
+    // Calculate totals (keeping for backward compatibility)
     const totalRevenue =
       payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
     const totalExpenses =
@@ -137,6 +181,10 @@ export async function getFinancialReports() {
       payments: payments || [],
       expenses: expenses || [],
       outstandingInvoices: outstandingInvoices || [],
+      defaultCurrency,
+      revenueByCurrency,
+      expensesByCurrency,
+      outstandingByCurrency,
     };
   } catch (error) {
     console.error("Error in getFinancialReports:", error);

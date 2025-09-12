@@ -25,7 +25,15 @@ export default function EditInvoicePage({
 
   // Change the type annotation here to explicitly allow null or empty array
   const [customers, setCustomers] = useState<Customer[] | null>(null);
-
+  const [currencies, setCurrencies] = useState<
+    Array<{
+      id: string;
+      code: string;
+      name: string;
+      symbol: string;
+      is_default: boolean;
+    }>
+  >([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -123,8 +131,16 @@ export default function EditInvoicePage({
         setCustomers(customersData as Customer[]);
       }
 
-      // Rest of the fetch code remains the same...
-      // (products, company profile, etc.)
+      // Fetch currencies for the current user
+      const { data: currenciesData } = await supabase
+        .from("currencies")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("code", { ascending: true });
+
+      setCurrencies(currenciesData || []);
 
       setLoading(false);
     };
@@ -504,15 +520,11 @@ export default function EditInvoicePage({
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     defaultValue={invoice.currency_code}
                   >
-                    <option value="HKD">HKD - Hong Kong Dollar</option>
-                    <option value="USD">USD - US Dollar</option>
-                    <option value="EUR">EUR - Euro</option>
-                    <option value="GBP">GBP - British Pound</option>
-                    <option value="JPY">JPY - Japanese Yen</option>
-                    <option value="CNY">CNY - Chinese Yuan</option>
-                    <option value="CAD">CAD - Canadian Dollar</option>
-                    <option value="AUD">AUD - Australian Dollar</option>
-                    <option value="SGD">SGD - Singapore Dollar</option>
+                    {currencies?.map((currency) => (
+                      <option key={currency.id} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

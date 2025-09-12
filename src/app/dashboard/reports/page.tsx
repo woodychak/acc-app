@@ -33,11 +33,26 @@ export default async function ReportsPage() {
 
   const reportData = await getFinancialReports();
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (
+    amount: number,
+    currency: string = reportData.defaultCurrency,
+  ) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currency,
     }).format(amount);
+  };
+
+  const formatMultiCurrency = (currencyAmounts: Record<string, number>) => {
+    const entries = Object.entries(currencyAmounts);
+    if (entries.length === 0) return formatCurrency(0);
+    if (entries.length === 1) {
+      const [currency, amount] = entries[0];
+      return formatCurrency(amount, currency);
+    }
+    return entries
+      .map(([currency, amount]) => formatCurrency(amount, currency))
+      .join(" + ");
   };
 
   const hasData = reportData.totalRevenue > 0 || reportData.totalExpenses > 0;
@@ -89,7 +104,7 @@ export default async function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {formatCurrency(reportData.totalRevenue)}
+                  {formatMultiCurrency(reportData.revenueByCurrency)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   From {reportData.payments.length} payments
@@ -106,7 +121,7 @@ export default async function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(reportData.totalExpenses)}
+                  {formatMultiCurrency(reportData.expensesByCurrency)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   From {reportData.expenses.length} expenses
@@ -127,7 +142,21 @@ export default async function ReportsPage() {
                 <div
                   className={`text-2xl font-bold ${reportData.netCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}
                 >
-                  {formatCurrency(reportData.netCashFlow)}
+                  {(() => {
+                    const netByCurrency: Record<string, number> = {};
+                    Object.keys({
+                      ...reportData.revenueByCurrency,
+                      ...reportData.expensesByCurrency,
+                    }).forEach((currency) => {
+                      const revenue =
+                        reportData.revenueByCurrency[currency] || 0;
+                      const expenses =
+                        reportData.expensesByCurrency[currency] || 0;
+                      const net = revenue - expenses;
+                      if (net !== 0) netByCurrency[currency] = net;
+                    });
+                    return formatMultiCurrency(netByCurrency);
+                  })()}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Revenue - Expenses
@@ -144,7 +173,7 @@ export default async function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-amber-600">
-                  {formatCurrency(reportData.totalOutstanding)}
+                  {formatMultiCurrency(reportData.outstandingByCurrency)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   From {reportData.outstandingInvoices.length} unpaid invoices
@@ -181,7 +210,10 @@ export default async function ReportsPage() {
                           >
                             <span className="text-sm">{month}</span>
                             <span className="text-sm font-medium">
-                              {formatCurrency(amount)}
+                              {formatCurrency(
+                                amount,
+                                reportData.defaultCurrency,
+                              )}
                             </span>
                           </div>
                         ))}
@@ -217,7 +249,10 @@ export default async function ReportsPage() {
                               {category}
                             </span>
                             <span className="text-sm font-medium">
-                              {formatCurrency(Number(amount) || 0)}
+                              {formatCurrency(
+                                Number(amount) || 0,
+                                reportData.defaultCurrency,
+                              )}
                             </span>
                           </div>
                         ))}
@@ -258,12 +293,23 @@ export default async function ReportsPage() {
                                       : "text-red-600"
                                   }`}
                                 >
-                                  {formatCurrency(netFlow)}
+                                  {formatCurrency(
+                                    netFlow,
+                                    reportData.defaultCurrency,
+                                  )}
                                 </span>
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                Revenue: {formatCurrency(revenue)} | Expenses:{" "}
-                                {formatCurrency(expenses)}
+                                Revenue:{" "}
+                                {formatCurrency(
+                                  revenue,
+                                  reportData.defaultCurrency,
+                                )}{" "}
+                                | Expenses:{" "}
+                                {formatCurrency(
+                                  expenses,
+                                  reportData.defaultCurrency,
+                                )}
                               </div>
                             </div>
                           );
@@ -370,7 +416,11 @@ export default async function ReportsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium text-green-600">
-                            {formatCurrency(payment.amount)}
+                            {formatCurrency(
+                              payment.amount,
+                              payment.currency_code ||
+                                reportData.defaultCurrency,
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground capitalize">
                             {payment.payment_method}
@@ -405,7 +455,11 @@ export default async function ReportsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium text-red-600">
-                            {formatCurrency(expense.amount)}
+                            {formatCurrency(
+                              expense.amount,
+                              expense.currency_code ||
+                                reportData.defaultCurrency,
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground capitalize">
                             {expense.payment_method}

@@ -27,7 +27,6 @@ import { useRouter } from "next/navigation";
 import { extractReceiptData } from "@/lib/receipt-ocr";
 import { useEffect } from "react";
 
-
 const EXPENSE_CATEGORIES = [
   "Office Supplies",
   "Travel",
@@ -63,9 +62,9 @@ type Area = {
   y: number;
   width: number;
   height: number;
-  imageWidth:  number;
+  imageWidth: number;
   imageHeight: number;
-}
+};
 
 export default function NewExpensePage() {
   const router = useRouter();
@@ -76,7 +75,8 @@ export default function NewExpensePage() {
   const [aiProcessing, setAiProcessing] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
-  const [aiExtractedData, setAiExtractedData] = useState<ExtractedReceiptData | null>(null);
+  const [aiExtractedData, setAiExtractedData] =
+    useState<ExtractedReceiptData | null>(null);
   const [error, setError] = useState("");
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedArea, setSelectedArea] = useState<{
@@ -89,8 +89,20 @@ export default function NewExpensePage() {
     naturalWidth: number;
     naturalHeight: number;
   } | null>(null);
-  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [currencies, setCurrencies] = useState<
+    Array<{
+      id: string;
+      code: string;
+      name: string;
+      symbol: string;
+      is_default: boolean;
+    }>
+  >([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -141,11 +153,43 @@ export default function NewExpensePage() {
     }, 150);
   };
 
-  const handleInputChange = (field: keyof typeof formData, value: string | boolean) => {
+  const handleInputChange = (
+    field: keyof typeof formData,
+    value: string | boolean,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
   // 1️⃣  at the top of your component body (after state hooks)
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
+
+  // Fetch currencies on component mount
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data: currenciesData } = await supabase
+        .from("currencies")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("code", { ascending: true });
+
+      setCurrencies(currenciesData || []);
+
+      // Set default currency
+      const defaultCurr =
+        currenciesData?.find((c) => c.is_default)?.code || "USD";
+      setFormData((prev) => ({ ...prev, currency_code: defaultCurr }));
+    };
+
+    fetchCurrencies();
+  }, []);
 
   // Start camera when showCamera toggled on
   useEffect(() => {
@@ -515,7 +559,7 @@ export default function NewExpensePage() {
 
   useEffect(() => {
     if (!selectedArea || !receiptFile) return;
-  
+
     (async () => {
       setAiProcessing(true);
       try {
@@ -525,8 +569,11 @@ export default function NewExpensePage() {
           imageWidth: selectedArea.displayWidth,
           imageHeight: selectedArea.displayHeight,
         };
-  
-        const { amount } = await extractReceiptData(receiptFile, areaWithLegacyFields);
+
+        const { amount } = await extractReceiptData(
+          receiptFile,
+          areaWithLegacyFields,
+        );
         if (amount) {
           setFormData((p) => ({ ...p, amount }));
           setAiExtractedData((p) => ({ ...p, amount }));
@@ -555,7 +602,9 @@ export default function NewExpensePage() {
     setSelectedArea(null);
   };
 
-  const handleImageMouseMove = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+  const handleImageMouseMove = (
+    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
+  ) => {
     if (!isSelecting || !isDrawing || !selectionStart) return;
     e.preventDefault();
 
@@ -575,7 +624,9 @@ export default function NewExpensePage() {
     });
   };
 
-  const handleImageMouseUp = (e: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+  const handleImageMouseUp = (
+    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
+  ) => {
     if (!isSelecting || !isDrawing || !selectionStart) return;
     e.preventDefault();
 
@@ -607,14 +658,15 @@ export default function NewExpensePage() {
     skipNextClickRef.current = true;
   };
 
-
   const startAreaSelection = () => {
     setIsSelecting(true);
     setSelectedArea(null);
     setError("");
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -635,7 +687,7 @@ export default function NewExpensePage() {
     let previewUrl: string;
 
     if (isPdf) {
-      const { pdfPageToPng } = await import('@/lib/pdf-to-image'); 
+      const { pdfPageToPng } = await import("@/lib/pdf-to-image");
       const pngBlob = await pdfPageToPng(file);
       ocrFile = new File([pngBlob], file.name + ".png", { type: "image/png" });
       previewUrl = URL.createObjectURL(pngBlob);
@@ -1120,11 +1172,11 @@ export default function NewExpensePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="CAD">HKD</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                          <SelectItem value="CAD">CAD</SelectItem>
+                          {currencies.map((currency) => (
+                            <SelectItem key={currency.id} value={currency.code}>
+                              {currency.code} - {currency.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

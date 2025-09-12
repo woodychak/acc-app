@@ -77,33 +77,36 @@ export type Database = {
       currencies: {
         Row: {
           code: string
-          decimal_places: number
-          exchange_rate: number | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
           is_default: boolean | null
-          last_updated: string | null
           name: string
           symbol: string
-          user_id: string | null
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
           code: string
-          decimal_places?: number
-          exchange_rate?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
           is_default?: boolean | null
-          last_updated?: string | null
           name: string
           symbol: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
           code?: string
-          decimal_places?: number
-          exchange_rate?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
           is_default?: boolean | null
-          last_updated?: string | null
           name?: string
           symbol?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -332,13 +335,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "invoices_currency_code_fkey"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-          {
             foreignKeyName: "invoices_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -388,13 +384,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "payments_currency_code_fkey"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
           {
             foreignKeyName: "payments_invoice_id_fkey"
             columns: ["invoice_id"]

@@ -23,8 +23,19 @@ function PaymentForm() {
   const [unpaidInvoices, setUnpaidInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [amount, setAmount] = useState(0);
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(
+    null,
+  );
   const [defaultCurrency, setDefaultCurrency] = useState("HKD");
+  const [currencies, setCurrencies] = useState<
+    Array<{
+      id: string;
+      code: string;
+      name: string;
+      symbol: string;
+      is_default: boolean;
+    }>
+  >([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,7 +51,8 @@ function PaymentForm() {
 
       const { data: invoicesRaw } = await supabase
         .from("invoices")
-        .select(`
+        .select(
+          `
           id,
           invoice_number,
           customer_id,
@@ -53,7 +65,8 @@ function PaymentForm() {
           customer:customers!customer_id (
             name
           )
-        `)
+        `,
+        )
         .eq("user_id", user.id)
         .in("status", ["draft", "sent", "overdue"])
         .order("due_date", { ascending: true });
@@ -79,9 +92,23 @@ function PaymentForm() {
 
       if (profileData) {
         setCompanyProfile(profileData);
-        if (!selectedInvoice && profileData.default_currency) {
-          setDefaultCurrency(profileData.default_currency);
-        }
+      }
+
+      // Get currencies for the current user
+      const { data: currencies } = await supabase
+        .from("currencies")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("code", { ascending: true });
+
+      setCurrencies(currencies || []);
+
+      if (!selectedInvoice) {
+        const defaultCurr =
+          currencies?.find((c) => c.is_default)?.code || "HKD";
+        setDefaultCurrency(defaultCurr);
       }
     };
 
@@ -130,7 +157,9 @@ function PaymentForm() {
       router.push("/dashboard/payments");
     } catch (error) {
       console.error("Error submitting payment:", error);
-      setError("Failed to record payment. Please check all fields and try again.");
+      setError(
+        "Failed to record payment. Please check all fields and try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -149,7 +178,9 @@ function PaymentForm() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold">Record Payment</h1>
-              <p className="text-muted-foreground">Record a payment for an invoice</p>
+              <p className="text-muted-foreground">
+                Record a payment for an invoice
+              </p>
             </div>
           </div>
 
@@ -216,15 +247,11 @@ function PaymentForm() {
                     onChange={(e) => setDefaultCurrency(e.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
-                    <option value="HKD">HKD - Hong Kong Dollar</option>
-                    <option value="USD">USD - US Dollar</option>
-                    <option value="EUR">EUR - Euro</option>
-                    <option value="GBP">GBP - British Pound</option>
-                    <option value="JPY">JPY - Japanese Yen</option>
-                    <option value="CNY">CNY - Chinese Yuan</option>
-                    <option value="CAD">CAD - Canadian Dollar</option>
-                    <option value="AUD">AUD - Australian Dollar</option>
-                    <option value="SGD">SGD - Singapore Dollar</option>
+                    {currencies.map((currency) => (
+                      <option key={currency.id} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -258,7 +285,9 @@ function PaymentForm() {
 
               {companyProfile?.bank_account && (
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-                  <h3 className="font-medium text-blue-800 mb-2">Company Bank Account Details</h3>
+                  <h3 className="font-medium text-blue-800 mb-2">
+                    Company Bank Account Details
+                  </h3>
                   <pre className="whitespace-pre-wrap text-sm text-blue-700">
                     {companyProfile.bank_account}
                   </pre>

@@ -35,13 +35,16 @@ export default async function EditProductPage({
     return redirect("/dashboard/products");
   }
 
-  // Get company profile to get default currency
-  const { data: companyProfile } = await supabase
-    .from("company_profile")
-    .select("default_currency")
-    .single();
+  // Get currencies for the current user
+  const { data: currencies } = await supabase
+    .from("currencies")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .order("is_default", { ascending: false })
+    .order("code", { ascending: true });
 
-  const defaultCurrency = companyProfile?.default_currency || "HKD";
+  const defaultCurrency = currencies?.find((c) => c.is_default)?.code || "HKD";
 
   return (
     <>
@@ -109,15 +112,11 @@ export default async function EditProductPage({
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     defaultValue={product.currency_code || defaultCurrency}
                   >
-                    <option value="HKD">HKD - Hong Kong Dollar</option>
-                    <option value="USD">USD - US Dollar</option>
-                    <option value="EUR">EUR - Euro</option>
-                    <option value="GBP">GBP - British Pound</option>
-                    <option value="JPY">JPY - Japanese Yen</option>
-                    <option value="CNY">CNY - Chinese Yuan</option>
-                    <option value="CAD">CAD - Canadian Dollar</option>
-                    <option value="AUD">AUD - Australian Dollar</option>
-                    <option value="SGD">SGD - Singapore Dollar</option>
+                    {currencies?.map((currency) => (
+                      <option key={currency.id} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

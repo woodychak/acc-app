@@ -13,6 +13,7 @@ import { CompanyProfileForm } from "@/components/CompanyProfileForm";
 import { FormMessage, Message } from "@/components/form-message";
 import { useFormState } from "react-dom";
 import { uploadCompanyLogoAction, updateCompanyProfileAction } from "./actions";
+import { CurrencyManagement } from "@/components/CurrencyManagement";
 
 export default async function CompanyProfilePage() {
   // Check if this is the initial setup
@@ -42,6 +43,14 @@ export default async function CompanyProfilePage() {
     .eq("user_id", user.id)
     .limit(1)
     .single();
+
+  // Fetch currencies for the current user
+  const { data: currencies } = await supabase
+    .from("currencies")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("is_default", { ascending: false })
+    .order("code", { ascending: true });
 
   // If none exists, create an empty profile for this user and reload
   if (error || !data) {
@@ -202,7 +211,10 @@ export default async function CompanyProfilePage() {
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-4">Company Profile</h1>
 
-          <CompanyProfileForm data={data} isSetup={isSetup} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <CompanyProfileForm data={data} isSetup={isSetup} />
+            <CurrencyManagement currencies={currencies || []} />
+          </div>
         </div>
       </main>
     </>
