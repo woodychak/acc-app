@@ -22,7 +22,7 @@ export async function updateCompanyProfileAction(
   const id = formData.get("id") as string;
   if (!id) {
     console.error("No company profile id provided");
-    return;
+    return { type: "error", message: "Company profile ID is missing" };
   }
 
   // 取出欄位，若沒提供就為 null
@@ -78,40 +78,85 @@ export async function updateCompanyProfileAction(
       ? email_template.toString()
       : null;
 
-  // Handle new SMTP fields
+  // Handle new SMTP fields - only if they exist in the form
   const smtp_secure = formData.get("smtp_secure");
   const smtp_sender = formData.get("smtp_sender");
 
-  updateData.smtp_secure =
-    smtp_secure && smtp_secure.toString().trim() !== ""
-      ? smtp_secure.toString()
-      : null;
-  updateData.smtp_sender =
-    smtp_sender && smtp_sender.toString().trim() !== ""
-      ? smtp_sender.toString()
-      : null;
+  if (smtp_secure !== null) {
+    updateData.smtp_secure =
+      smtp_secure && smtp_secure.toString().trim() !== ""
+        ? smtp_secure.toString()
+        : null;
+  }
+  if (smtp_sender !== null) {
+    updateData.smtp_sender =
+      smtp_sender && smtp_sender.toString().trim() !== ""
+        ? smtp_sender.toString()
+        : null;
+  }
 
-  // 設定 is_complete，只根據 name + address 判斷
+  // Updated validation: Only require Company Name, Tel, and Contact Info for completion
   updateData.is_complete =
     (updateData.name?.trim() || "") !== "" &&
-    (updateData.address?.trim() || "") !== "";
+    (updateData.tel?.trim() || "") !== "" &&
+    (updateData.contact?.trim() || "") !== "";
 
-  const { error } = await supabase
-    .from("company_profile")
-    .update(updateData)
-    .eq("id", id)
-    .eq("user_id", user.id);
+  try {
+    const { error } = await supabase
+      .from("company_profile")
+      .update(updateData)
+      .eq("id", id)
+      .eq("user_id", user.id);
 
-  if (error) {
-    console.error("Update company profile failed:", error.message);
+    if (error) {
+      console.error("Update company profile failed:", error.message);
+      return { type: "error", message: `Failed to save company profile: ${error.message}` };
+    }
+
+    // Ensure default currencies exist for the user
+    await ensureDefaultCurrencies(supabase, user.id);
+
+    revalidatePath("/dashboard/company-profile");
+
+    if (isSetup && updateData.is_complete) {
+      return redirect("/dashboard");
+    }
+    return { type: "success", message: "公司資料已成功更新。" };
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return { type: "error", message: "An unexpected error occurred while saving" };
   }
+}
 
-  revalidatePath("/dashboard/company-profile");
+// Helper function to ensure default currencies exist for a user
+async function ensureDefaultCurrencies(supabase: any, userId: string) {
+  const defaultCurrencies = [
+    { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$', is_default: true },
+    { code: 'USD', name: 'US Dollar', symbol: '$', is_default: false },
+    { code: 'EUR', name: 'Euro', symbol: '€', is_default: false },
+    { code: 'GBP', name: 'British Pound', symbol: '£', is_default: false },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥', is_default: false },
+    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', is_default: false },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', is_default: false },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', is_default: false },
+    { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$', is_default: false }
+  ];
 
-  if (isSetup && updateData.is_complete) {
-    return redirect("/dashboard");
+  for (const currency of defaultCurrencies) {
+    await supabase
+      .from('currencies')
+      .upsert({
+        user_id: userId,
+        code: currency.code,
+        name: currency.name,
+        symbol: currency.symbol,
+        is_default: currency.is_default,
+        is_active: true
+      }, {
+        onConflict: 'user_id,code',
+        ignoreDuplicates: true
+      });
   }
-  return { type: "success", message: "公司資料已成功更新。" };
 }
 
 export async function addCurrencyAction(formData: FormData) {
@@ -298,26 +343,11 @@ export async function uploadCompanyLogoAction(formData: FormData) {
       return;
     }
 
-    // 取得公司 profile id
-    const { data: companyProfile, error: profileError } = await supabase
-      .from("company_profile")
-      .select("id")
-      .limit(1)
-      .single();
-
-    if (profileError || !companyProfile) {
-      console.error(
-        "Error fetching company profile:",
-        profileError?.message || "No profile found",
-      );
-      return;
-    }
-
-    // 更新 logo_url
+    // 更新 logo_url - FIXED: Add user_id filter to prevent updating wrong profile
     const { error: updateError } = await supabase
       .from("company_profile")
       .update({ logo_url: publicUrl })
-      .eq("id", companyProfile.id);
+      .eq("user_id", user.id);
 
     if (updateError) {
       console.error("Error updating logo URL:", updateError.message);

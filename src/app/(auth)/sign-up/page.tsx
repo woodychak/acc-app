@@ -82,20 +82,6 @@ export default async function Signup(props: {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="company_name" className="text-sm font-medium">
-                    Company Name
-                  </Label>
-                  <Input
-                    id="company_name"
-                    name="company_name"
-                    type="text"
-                    placeholder="Acme Inc."
-                    required
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">
                     Email
                   </Label>

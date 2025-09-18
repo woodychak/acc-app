@@ -287,12 +287,13 @@ export const sendInvoiceEmailAction = async (formData: FormData) => {
     }
 
     // Get company profile with SMTP settings
-    const { data: companyProfile, error: profileError } = await supabase
+    const { data: companyProfiles, error: profileError } = await supabase
       .from("company_profile")
       .select("*")
       .eq("user_id", user.id)
-      .limit(1)
-      .single();
+      .limit(1);
+
+    const companyProfile = Array.isArray(companyProfiles) ? companyProfiles[0] : companyProfiles;
 
     if (profileError || !companyProfile) {
       console.error("Company profile not found:", profileError);

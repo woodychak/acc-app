@@ -1,16 +1,16 @@
 import { NextRequest } from "next/server";
-import { createServerSupabaseClient } from "../../../../../../supabase/server"; // Adjust path as needed
+import { createServerSupabaseClient } from "../../../../../../supabase/server";
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage, cmyk } from "pdf-lib";
-import { Invoice, Customer, InvoiceItems, CompanyProfile } from "../../../../types"; // Assuming types.ts is in the same directory or adjust path
+import { Quotation, Customer, QuotationItems, CompanyProfile } from "../../../../types";
 
-// Helper function to fetch data with retries (basic example)
+// Helper function to fetch data with retries
 async function fetchWithRetry(url: string, retries = 3, delay = 1000): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url);
       if (response.ok) return response;
-      if (response.status >= 400 && response.status < 500 && i === retries - 1) { // Don't retry client errors on last attempt
-        return response; // Return the client error response
+      if (response.status >= 400 && response.status < 500 && i === retries - 1) {
+        return response;
       }
     } catch (error) {
       if (i === retries - 1) throw error;
@@ -19,7 +19,6 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1000): Promise<R
   }
   throw new Error(`Failed to fetch ${url} after ${retries} retries`);
 }
-
 
 // PDF Styling Constants
 const Colors = {
@@ -31,7 +30,7 @@ const Colors = {
   neutralLight: rgb(243 / 255, 244 / 255, 246 / 255), // Gray-100
   white: rgb(1, 1, 1),
   black: rgb(0, 0, 0),
-  transparent: cmyk(0,0,0,0), // For height calculation
+  transparent: cmyk(0,0,0,0),
 };
 
 const FontSizes = {
@@ -46,22 +45,22 @@ const FontSizes = {
 const PageMargin = 50;
 const LineHeight = 15;
 const SectionSpacing = 10;
-const MinHeaderHeightPoints = 150; // Minimum height for the header section
+const MinHeaderHeightPoints = 150;
 
-// Helper to sanitize text for PDF, removing problematic characters
+// Helper to sanitize text for PDF
 const sanitizePdfText = (text: string | null | undefined): string => {
   if (!text) return "";
   return text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    // Remove ligatures and special characters that can't be encoded by WinAnsi
+    .replace(/\t/g, '    ') // Replace tabs with 4 spaces
     .replace(/ﬀ/g, 'ff')
     .replace(/ﬁ/g, 'fi')
     .replace(/ﬂ/g, 'fl')
     .replace(/ﬃ/g, 'ffi')
     .replace(/ﬄ/g, 'ffl')
-    // Replace other problematic Unicode characters
-    .replace(/[^\x00-\xFF]/g, '?'); // Replace any non-Latin-1 characters with ?
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '') // Remove control characters
+    .replace(/[^\x00-\xFF]/g, '?'); // Replace non-Latin characters
 };
 
 // Helper to format date
@@ -96,7 +95,7 @@ function drawTextLine(
   page: PDFPage,
   text: string,
   currentY: number,
-  x: number, // Base x for alignment
+  x: number,
   options: DrawTextOptions = {},
 ): number {
   const {
@@ -109,11 +108,10 @@ function drawTextLine(
   } = options;
 
   const resolvedLineHeight = optionLineHeight ?? LineHeight;
-  const sanitizedText = sanitizePdfText(text); // Sanitize before use
+  const sanitizedText = sanitizePdfText(text);
 
   let drawX = x;
-  // Adjust X for alignment if font and maxWidth are provided
-  if (font && maxWidth != null) { // Check for null or undefined explicitly
+  if (font && maxWidth != null) {
     if (align === 'right') {
       const textWidth = font.widthOfTextAtSize(sanitizedText, size);
       drawX = x + maxWidth - textWidth;
@@ -122,19 +120,19 @@ function drawTextLine(
       drawX = x + (maxWidth - textWidth) / 2;
     }
   }
-  if (color !== Colors.transparent) { // Only draw if not transparent
+  if (color !== Colors.transparent) {
     page.drawText(sanitizedText, {
       x: drawX,
       y: currentY,
-      font, // Font must be provided in options if not relying on pdf-lib default
+      font,
       size,
-      color: color as ReturnType<typeof rgb>, // Cast because cmyk is only for measurement
+      color: color as ReturnType<typeof rgb>,
     });
   }
   return currentY - resolvedLineHeight;
 }
 
-// Function to draw multiple lines of text (basic implementation for \n and word wrapping)
+// Function to draw multiple lines of text
 function drawMultiLineText(
   page: PDFPage,
   text: string,
@@ -158,7 +156,6 @@ function drawMultiLineText(
 
     while (remainingText.length > 0) {
       if (!font || font.widthOfTextAtSize(remainingText, size) <= maxWidth) {
-        // 整行可以容納，直接畫
         y = drawTextLine(page, remainingText, y, x, {
           ...options,
           maxWidth,
@@ -167,7 +164,6 @@ function drawMultiLineText(
         break;
       }
 
-      // 找可容納的斷點
       let breakPoint = remainingText.length;
       while (
         breakPoint > 0 &&
@@ -176,7 +172,6 @@ function drawMultiLineText(
         breakPoint--;
       }
 
-      // 試著在 breakPoint 左邊找一個空格來斷行
       const lastSpace = remainingText.lastIndexOf(' ', breakPoint);
       if (lastSpace > 0) breakPoint = lastSpace;
 
@@ -191,34 +186,26 @@ function drawMultiLineText(
     }
   }
 
-  // 回傳最終 Y 座標（已減過最後一行 lineHeight）
   return y + lineHeight;
 }
 
-
-async function drawInvoiceTableHeaders(page: PDFPage, y: number, fonts: { regular: PDFFont, bold: PDFFont }, pageWidth: number, currency_code: string): Promise<number> {
+async function drawQuotationTableHeaders(page: PDFPage, y: number, fonts: { regular: PDFFont, bold: PDFFont }, pageWidth: number, currency_code: string): Promise<number> {
   let currentY = y;
   const colWidths = [0.40, 0.15, 0.15, 0.15, 0.15]; 
   const tableWidth = pageWidth - 2 * PageMargin;
   
   const descColX = PageMargin;
-
   const qtyColX = PageMargin + tableWidth * colWidths[0];
   const qtyColWidth = tableWidth * colWidths[1] - 5;
-
   const unitPriceColX = qtyColX + tableWidth * colWidths[1]; 
   const unitPriceColWidth = tableWidth * colWidths[2] - 5;
-
   const taxRateColX = unitPriceColX + tableWidth * colWidths[2];
   const taxRateColWidth = tableWidth * colWidths[3] - 5;
-
   const lineTotalColX = taxRateColX + tableWidth * colWidths[3];
   const lineTotalColWidth = tableWidth * colWidths[4] - 5;
 
-
   const headerBaseOptions = { font: fonts.bold, size: FontSizes.tableHeader, color: Colors.neutralDarker };
 
-  // Text for headers is static, so sanitization is not strictly needed here unless these strings could somehow get \r
   page.drawText(sanitizePdfText("Description"), { x: descColX, y: currentY, ...headerBaseOptions });
   
   let text = sanitizePdfText("Quantity");
@@ -248,14 +235,13 @@ async function drawInvoiceTableHeaders(page: PDFPage, y: number, fonts: { regula
   return currentY;
 }
 
-const calculateLineTotalWithTax = (item: InvoiceItems): number => {
+const calculateLineTotalWithTax = (item: QuotationItems): number => {
     const baseTotal = item.quantity * item.unit_price;
     if (item.tax_rate && item.tax_rate > 0) {
       return baseTotal * (1 + item.tax_rate / 100);
     }
     return baseTotal;
 };
-
 
 export async function GET(
   req: NextRequest,
@@ -272,29 +258,27 @@ export async function GET(
   }
 
   try {
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from("invoices")
+    const { data: quotationData, error: quotationError } = await supabase
+      .from("quotations")
       .select(
         `
         *,
         customer:customers(*), 
-        invoice_items(*, product:products(name))
+        quotation_items(*, product:products(name))
       `,
       )
       .eq("id", params.id)
       .single(); 
 
-    if (invoiceError || !invoiceData) {
-      console.error("Error fetching invoice:", invoiceError);
-      return new Response(`Invoice not found: ${invoiceError?.message || 'Unknown error'}`, { status: 404 });
+    if (quotationError || !quotationData) {
+      console.error("Error fetching quotation:", quotationError);
+      return new Response(`Quotation not found: ${quotationError?.message || 'Unknown error'}`, { status: 404 });
     }
-     if (!invoiceData.customer) {
-        console.error("Invoice is missing customer data:", invoiceData);
-        return new Response("Invoice data is incomplete: missing customer", { status: 500 });
+     if (!quotationData.customer) {
+        console.error("Quotation is missing customer data:", quotationData);
+        return new Response("Quotation data is incomplete: missing customer", { status: 500 });
     }
-    // Type cast to ensure invoice is treated as Invoice, not Invoice | null
-    const invoice: Invoice = invoiceData as Invoice;
-
+    const quotation: Quotation = quotationData as Quotation;
 
     const { data: companyProfileData, error: profileError } = await supabase
       .from("company_profile")
@@ -307,7 +291,6 @@ export async function GET(
       return new Response(`Failed to fetch company profile: ${profileError?.message || 'Unknown error'}`, { status: 500 });
     }
     const companyProfile: CompanyProfile = companyProfileData as CompanyProfile;
-
 
     const pdfDoc = await PDFDocument.create();
     let page = pdfDoc.addPage([595.28, 841.89]); // A4
@@ -330,18 +313,16 @@ export async function GET(
     const maxLogoWidth = 120; 
 
     try {
-      const logoUrl = companyProfile.logo_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(sanitizePdfText(companyProfile.name) || "C")}&backgroundColor=3B82F6&textColor=ffffff&fontSize=40&radius=10&format=png`; // force png
+      const logoUrl = companyProfile.logo_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(sanitizePdfText(companyProfile.name) || "C")}&backgroundColor=3B82F6&textColor=ffffff&fontSize=40&radius=10&format=png`;
       const logoResponse = await fetchWithRetry(logoUrl);
       if (logoResponse.ok) {
         const logoImageBytes = await logoResponse.arrayBuffer();
         const logoUint8Array = new Uint8Array(logoImageBytes);
         
-        // Check if it's a PNG by looking at the PNG signature
         const isPng = logoUint8Array.length >= 8 && 
           logoUint8Array[0] === 0x89 && logoUint8Array[1] === 0x50 && 
           logoUint8Array[2] === 0x4E && logoUint8Array[3] === 0x47;
         
-        // Check if it's a JPEG by looking for SOI marker
         const isJpeg = logoUint8Array.length >= 2 && 
           logoUint8Array[0] === 0xFF && logoUint8Array[1] === 0xD8;
         
@@ -381,21 +362,17 @@ export async function GET(
 
     leftY = drawTextLine(page, companyProfile.name, leftY, PageMargin, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker });
     if (companyProfile.address) leftY = drawMultiLineText(page, companyProfile.address, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, lineHeight: FontSizes.body * 0.5 }, pageWidth);
-    //if (companyProfile.city_state_zip) leftY = drawTextLine(page, companyProfile.city_state_zip, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
-    //if (companyProfile.country) leftY = drawTextLine(page, companyProfile.country, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     if (companyProfile.tel) leftY = drawTextLine(page, `Tel: ${sanitizePdfText(companyProfile.tel)}`, leftY - 5, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     if (companyProfile.contact) leftY = drawTextLine(page, `Email: ${sanitizePdfText(companyProfile.contact)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
-    //if (companyProfile.website) leftY = drawTextLine(page, `Web: ${sanitizePdfText(companyProfile.website)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
-    //if (companyProfile.tax_id) leftY = drawTextLine(page, `Tax ID: ${sanitizePdfText(companyProfile.tax_id)}`, leftY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, lineHeight: LineHeight *1.5 });
 
     let rightY = initialHeaderY; 
-    rightY = drawTextLine(page, "INVOICE", rightY, headerRightX, { font: boldFont, size: FontSizes.title, color: Colors.primary, align: 'right', maxWidth: headerRightWidth });
-    rightY = drawTextLine(page, `# ${sanitizePdfText(invoice.invoice_number)}`, rightY, headerRightX, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker, align: 'right', maxWidth: headerRightWidth });
+    rightY = drawTextLine(page, "QUOTATION", rightY, headerRightX, { font: boldFont, size: FontSizes.title, color: Colors.primary, align: 'right', maxWidth: headerRightWidth });
+    rightY = drawTextLine(page, `# ${sanitizePdfText(quotation.quotation_number)}`, rightY, headerRightX, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker, align: 'right', maxWidth: headerRightWidth });
     
     rightY -= LineHeight * 0.5; 
     
-    rightY = drawTextLine(page, `Date Issued: ${formatDatePdf(invoice.issue_date)}`, rightY, headerRightX, {font: font, size:FontSizes.body, color: Colors.neutralDark, align: 'right', maxWidth: headerRightWidth});
-    rightY = drawTextLine(page, `Date Due: ${formatDatePdf(invoice.due_date)}`, rightY, headerRightX, {font: font, size:FontSizes.body, color: Colors.neutralDark, align: 'right', maxWidth: headerRightWidth});
+    rightY = drawTextLine(page, `Date Issued: ${formatDatePdf(quotation.issue_date)}`, rightY, headerRightX, {font: font, size:FontSizes.body, color: Colors.neutralDark, align: 'right', maxWidth: headerRightWidth});
+    rightY = drawTextLine(page, `Valid Until: ${formatDatePdf(quotation.valid_until)}`, rightY, headerRightX, {font: font, size:FontSizes.body, color: Colors.neutralDark, align: 'right', maxWidth: headerRightWidth});
 
     const headerContentBottomY = Math.min(leftY, rightY); 
     const separatorYFromContent = headerContentBottomY - (SectionSpacing * 0.5);
@@ -410,28 +387,27 @@ export async function GET(
     });
     currentY -= SectionSpacing; 
 
-    // ======== 2. BILL TO SECTION ========
-    currentY = drawTextLine(page, "Bill To:", currentY, PageMargin, { font: boldFont, size: FontSizes.body, color: Colors.neutralDark });
-    currentY = drawTextLine(page, invoice.customer.name, currentY, PageMargin, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker });
-    if (invoice.customer.address) currentY = drawMultiLineText(page, invoice.customer.address, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark }, pageWidth);
-    if (invoice.customer.email) currentY = drawTextLine(page, invoice.customer.email, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
-    if (invoice.customer.phone) currentY = drawTextLine(page, invoice.customer.phone, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
+    // ======== 2. QUOTE TO SECTION ========
+    currentY = drawTextLine(page, "Quote To:", currentY, PageMargin, { font: boldFont, size: FontSizes.body, color: Colors.neutralDark });
+    currentY = drawTextLine(page, quotation.customer.name, currentY, PageMargin, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker });
+    if (quotation.customer.address) currentY = drawMultiLineText(page, quotation.customer.address, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark }, pageWidth);
+    if (quotation.customer.email) currentY = drawTextLine(page, quotation.customer.email, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
+    if (quotation.customer.phone) currentY = drawTextLine(page, quotation.customer.phone, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark });
     
     currentY -= SectionSpacing;
 
    // ======== 3. ITEMS TABLE ========
-currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth, invoice.currency_code);
+currentY = await drawQuotationTableHeaders(page, currentY, fonts, pageWidth, quotation.currency_code);
 
-const tableBottomMargin = PageMargin + 200; // 換頁保留空間
+const tableBottomMargin = PageMargin + 200;
 
-for (const item of invoice.invoice_items) {
-  // 檢查是否需要換頁
+for (const item of quotation.quotation_items) {
   if (currentY < tableBottomMargin) {
     page = pdfDoc.addPage([595.28, 841.89]);
     pageHeight = page.getSize().height;
     pageWidth = page.getSize().width;
     currentY = pageHeight - PageMargin;
-    currentY = await drawInvoiceTableHeaders(page, currentY, fonts, pageWidth, invoice.currency_code);
+    currentY = await drawQuotationTableHeaders(page, currentY, fonts, pageWidth, quotation.currency_code);
   }
 
   const lineTotalWithTax = calculateLineTotalWithTax(item);
@@ -467,7 +443,7 @@ for (const item of invoice.invoice_items) {
 
   const tempY = currentY;
 
-  // 1. 畫 product name（粗體，單行）
+  // 1. Draw product name (bold, single line)
 const productName = item.product?.name || 'Unnamed Product';
 const productNameFontSize = FontSizes.body - 1;
 const productNameLineHeight = productNameFontSize * 1.2;
@@ -479,7 +455,7 @@ page.drawText(productName, {
   font: boldFont,
 });
 
-// 2. 畫 description（多行）
+// 2. Draw description (multi-line)
 const descriptionFontSize = FontSizes.small;
 const descriptionLineHeight = descriptionFontSize * 0.55;
 
@@ -502,7 +478,7 @@ const finalDescY = drawMultiLineText(
 
 const descriptionHeight = tempY - finalDescY;
 
-  // 3. 畫右側數值欄（對齊 product name 頂部）
+  // 3. Draw right side values (aligned to product name top)
   drawTextLine(page, item.quantity.toString(), tempY, quantityX, {
     ...optionsForThisRow,
     align: 'right',
@@ -511,7 +487,7 @@ const descriptionHeight = tempY - finalDescY;
 
   drawTextLine(
     page,
-    formatCurrencyPdf(item.unit_price, invoice.currency_code),
+    formatCurrencyPdf(item.unit_price, quotation.currency_code),
     tempY,
     unitPriceX,
     {
@@ -535,7 +511,7 @@ const descriptionHeight = tempY - finalDescY;
 
   drawTextLine(
     page,
-    formatCurrencyPdf(lineTotalWithTax, invoice.currency_code),
+    formatCurrencyPdf(lineTotalWithTax, quotation.currency_code),
     tempY,
     lineTotalX,
     {
@@ -546,7 +522,7 @@ const descriptionHeight = tempY - finalDescY;
     }
   );
 
-  // 4. 分隔線
+  // 4. Separator line
   const lineY = finalDescY - 5;
   page.drawLine({
     start: { x: PageMargin, y: lineY },
@@ -555,12 +531,11 @@ const descriptionHeight = tempY - finalDescY;
     color: Colors.neutralLight,
   });
 
-  // 5. 更新 currentY
+  // 5. Update currentY
   currentY = lineY - 10;
 }
 
 currentY -= SectionSpacing * 0.5;
-
 
     // ======== 4. TOTALS SECTION ========
     const totalsX = pageWidth / 2; 
@@ -569,15 +544,15 @@ currentY -= SectionSpacing * 0.5;
     const totalsValueWidth = (pageWidth - PageMargin - totalsX) * 0.4; 
 
     currentY = drawTextLine(page, `Subtotal:`, currentY, totalsX, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: totalsLabelWidth });
-    drawTextLine(page, formatCurrencyPdf(invoice.subtotal, invoice.currency_code), currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker, align: 'right', maxWidth: totalsValueWidth });
+    drawTextLine(page, formatCurrencyPdf(quotation.subtotal, quotation.currency_code), currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker, align: 'right', maxWidth: totalsValueWidth });
 
-    if (invoice.tax_amount > 0) {
+    if (quotation.tax_amount > 0) {
       currentY = drawTextLine(page, `Tax:`, currentY, totalsX, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: totalsLabelWidth });
-      drawTextLine(page, formatCurrencyPdf(invoice.tax_amount, invoice.currency_code), currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker, align: 'right', maxWidth: totalsValueWidth });
+      drawTextLine(page, formatCurrencyPdf(quotation.tax_amount, quotation.currency_code), currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker, align: 'right', maxWidth: totalsValueWidth });
     }
-    if (invoice.discount_amount > 0) {
+    if (quotation.discount_amount > 0) {
       currentY = drawTextLine(page, `Discount:`, currentY, totalsX, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: totalsLabelWidth });
-      drawTextLine(page, `-${formatCurrencyPdf(invoice.discount_amount, invoice.currency_code)}`, currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker, align: 'right', maxWidth: totalsValueWidth });
+      drawTextLine(page, `-${formatCurrencyPdf(quotation.discount_amount, quotation.currency_code)}`, currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker, align: 'right', maxWidth: totalsValueWidth });
     }
     
     currentY -= LineHeight * 0.5;
@@ -589,12 +564,12 @@ currentY -= SectionSpacing * 0.5;
     });
     currentY -= LineHeight * 1.2;
 
-    currentY = drawTextLine(page, `Total Amount Due:`, currentY, totalsX, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker, maxWidth: totalsLabelWidth });
-    drawTextLine(page, formatCurrencyPdf(invoice.total_amount, invoice.currency_code), currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.subHeader, color: Colors.primaryDark, align: 'right', maxWidth: totalsValueWidth });
+    currentY = drawTextLine(page, `Total Amount:`, currentY, totalsX, { font: boldFont, size: FontSizes.subHeader, color: Colors.neutralDarker, maxWidth: totalsLabelWidth });
+    drawTextLine(page, formatCurrencyPdf(quotation.total_amount, quotation.currency_code), currentY + LineHeight, totalsValueX, { font: boldFont, size: FontSizes.subHeader, color: Colors.primaryDark, align: 'right', maxWidth: totalsValueWidth });
     
     currentY -= SectionSpacing;
 
-    // ======== 5. FOOTER (NOTES & PAYMENT TERMS) ========
+    // ======== 5. FOOTER (NOTES & TERMS) ========
     const footerMinY = PageMargin + LineHeight * 8; 
     if (currentY < footerMinY && pdfDoc.getPageCount() === 1) { 
         currentY = footerMinY; 
@@ -613,9 +588,15 @@ currentY -= SectionSpacing * 0.5;
     });
     currentY -= SectionSpacing * 0.8;
 
-    if (invoice.notes) {
+    if (quotation.notes) {
       currentY = drawTextLine(page, "Notes:", currentY, PageMargin, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker });
-      currentY = drawMultiLineText(page, invoice.notes, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: pageWidth - 2 * PageMargin }, pageWidth);
+      currentY = drawMultiLineText(page, quotation.notes, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: pageWidth - 2 * PageMargin }, pageWidth);
+      currentY -= LineHeight * 0.5;
+    }
+
+    if (quotation.terms_conditions) {
+      currentY = drawTextLine(page, "Terms & Conditions:", currentY, PageMargin, { font: boldFont, size: FontSizes.body, color: Colors.neutralDarker });
+      currentY = drawMultiLineText(page, quotation.terms_conditions, currentY, PageMargin, { font: font, size: FontSizes.body, color: Colors.neutralDark, maxWidth: pageWidth - 2 * PageMargin }, pageWidth);
       currentY -= LineHeight * 0.5;
     }
 
@@ -661,11 +642,10 @@ currentY -= SectionSpacing * 0.5;
         currentY = bankDetailsRectY - LineHeight * 0.5; 
     }
 
-    const finalMessage = sanitizePdfText(`If you have any questions concerning this invoice, please contact ${sanitizePdfText(companyProfile.contact) || sanitizePdfText(companyProfile.name)}.`);
+    const finalMessage = sanitizePdfText(`If you have any questions concerning this quotation, please contact ${sanitizePdfText(companyProfile.contact) || sanitizePdfText(companyProfile.name)}.`);
     const finalMessageYPosition = Math.min(currentY, PageMargin + LineHeight * 2); 
      if (finalMessageYPosition < PageMargin) { 
         page = pdfDoc.addPage([595.28, 841.89]);
-        // No need to update pageHeight/Width here as they aren't used after this for new page decisions
         drawTextLine(page, finalMessage, PageMargin + LineHeight, PageMargin, { font: font, size: FontSizes.small, color: Colors.neutralDark, align: 'center', maxWidth: pageWidth - 2 * PageMargin});
     } else {
         drawTextLine(page, finalMessage, finalMessageYPosition, PageMargin, { font: font, size: FontSizes.small, color: Colors.neutralDark, align: 'center', maxWidth: pageWidth - 2 * PageMargin});
@@ -677,7 +657,7 @@ currentY -= SectionSpacing * 0.5;
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="invoice-${sanitizePdfText(invoice.invoice_number)}.pdf"`,
+        "Content-Disposition": `attachment; filename="quotation-${sanitizePdfText(quotation.quotation_number)}.pdf"`,
         "Content-Length": pdfBytes.length.toString(),
       },
     });

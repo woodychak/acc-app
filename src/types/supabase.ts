@@ -30,6 +30,8 @@ export type Database = {
           smtp_host: string | null
           smtp_password: string | null
           smtp_port: number | null
+          smtp_secure: string | null
+          smtp_sender: string | null
           smtp_username: string | null
           tel: string | null
           user_id: string | null
@@ -49,6 +51,8 @@ export type Database = {
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
+          smtp_secure?: string | null
+          smtp_sender?: string | null
           smtp_username?: string | null
           tel?: string | null
           user_id?: string | null
@@ -68,6 +72,8 @@ export type Database = {
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
+          smtp_secure?: string | null
+          smtp_sender?: string | null
           smtp_username?: string | null
           tel?: string | null
           user_id?: string | null
@@ -434,6 +440,138 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      quotation_items: {
+        Row: {
+          description: string
+          discount_amount: number | null
+          discount_percentage: number | null
+          id: string
+          line_total: number
+          product_id: string | null
+          quantity: number
+          quotation_id: string | null
+          tax_amount: number | null
+          tax_rate: number | null
+          unit_price: number
+        }
+        Insert: {
+          description: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          line_total?: number
+          product_id?: string | null
+          quantity?: number
+          quotation_id?: string | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+        }
+        Update: {
+          description?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          line_total?: number
+          product_id?: string | null
+          quantity?: number
+          quotation_id?: string | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          converted_invoice_id: string | null
+          created_at: string | null
+          currency_code: string | null
+          customer_id: string | null
+          discount_amount: number | null
+          id: string
+          issue_date: string
+          notes: string | null
+          quotation_number: string
+          status: string | null
+          subtotal: number
+          tax_amount: number | null
+          terms_conditions: string | null
+          total_amount: number
+          updated_at: string | null
+          user_id: string
+          valid_until: string
+        }
+        Insert: {
+          converted_invoice_id?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          customer_id?: string | null
+          discount_amount?: number | null
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          quotation_number: string
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          terms_conditions?: string | null
+          total_amount?: number
+          updated_at?: string | null
+          user_id: string
+          valid_until: string
+        }
+        Update: {
+          converted_invoice_id?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          customer_id?: string | null
+          discount_amount?: number | null
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          quotation_number?: string
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          terms_conditions?: string | null
+          total_amount?: number
+          updated_at?: string | null
+          user_id?: string
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_converted_invoice_id_fkey"
+            columns: ["converted_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

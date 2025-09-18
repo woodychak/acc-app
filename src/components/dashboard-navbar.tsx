@@ -20,6 +20,7 @@ import {
   BarChart3,
   DollarSign,
   Receipt,
+  FileCheck,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -45,6 +46,11 @@ export default function DashboardNavbar() {
       name: "Customers",
       href: "/dashboard/customers",
       icon: <Users className="h-5 w-5" />,
+    },
+    {
+      name: "Quotations",
+      href: "/dashboard/quotations",
+      icon: <FileCheck className="h-5 w-5" />,
     },
     {
       name: "Invoices",

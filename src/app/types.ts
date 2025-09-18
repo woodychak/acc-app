@@ -152,3 +152,63 @@ export type CustomerSummary = {
 export type InvoiceWithCustomer = Invoice & {
   customers?: CustomerSummary; // 注意是 customers
 };
+
+export type Quotation = {
+  id: string;
+  quotation_number: string;
+  customer_id: string;
+  currency_code: string;
+  issue_date: string;
+  valid_until: string;
+  status: string;
+  tax_amount: number;
+  subtotal: number;
+  discount_amount: number;
+  notes?: string;
+  terms_conditions?: string;
+  total_amount: number;
+  converted_invoice_id?: string;
+  quotation_items: QuotationItems[];
+  customer: {
+    name: string;
+    email: string;
+    address: string;
+    phone: string;
+  };
+  customers: {
+    name: string;
+    email: string;
+    address: string;
+    phone: string;
+  };
+};
+
+export type QuotationItems = {
+  id?: string | number;
+  quotation_id?: string;
+  product_id?: string | null;
+  product_name?: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate?: number;
+  tax_amount: number;
+  line_total?: number;
+  original_id?: string;
+  product?: Product;
+};
+
+export interface QuotationCustomer {
+  name: string;
+}
+
+export interface QuotationSelected {
+  id: string;
+  quotation_number: string;
+  issue_date: string;
+  valid_until: string;
+  total_amount: number;
+  currency_code: string;
+  status: string;
+  customers?: QuotationCustomer | null;
+}
