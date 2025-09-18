@@ -4,6 +4,10 @@ import { createServerSupabaseClient } from "../../../../supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+// 🔹 Helper for safe error handling
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 export async function createQuotationAction(formData: FormData) {
   const supabase = await createServerSupabaseClient();
 
@@ -86,7 +90,9 @@ export async function createQuotationAction(formData: FormData) {
 
       if (itemError) {
         console.error("Error creating quotation items:", itemError);
-        throw new Error(`Failed to create quotation items: ${itemError.message}`);
+        throw new Error(
+          `Failed to create quotation items: ${itemError.message}`,
+        );
       }
     }
 
@@ -94,7 +100,7 @@ export async function createQuotationAction(formData: FormData) {
     redirect(`/dashboard/quotations/${quotation.id}`);
   } catch (error: any) {
     // Handle redirect errors (which are expected)
-    if (error?.digest?.startsWith('NEXT_REDIRECT')) {
+    if (error?.digest?.startsWith("NEXT_REDIRECT")) {
       throw error;
     }
     console.error("Error in createQuotationAction:", error);
@@ -117,10 +123,12 @@ export async function convertQuotationToInvoiceAction(quotationId: string) {
     // Get quotation with items
     const { data: quotation, error: quotationError } = await supabase
       .from("quotations")
-      .select(`
+      .select(
+        `
         *,
         quotation_items(*)
-      `)
+      `,
+      )
       .eq("id", quotationId)
       .single();
 
@@ -149,7 +157,10 @@ export async function convertQuotationToInvoiceAction(quotationId: string) {
     const currentPrefix = companyProfile?.prefix || "INV-";
 
     if (latestInvoice?.invoice_number) {
-      const escapedPrefix = currentPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedPrefix = currentPrefix.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&",
+      );
       const regex = new RegExp(`^${escapedPrefix}(\\d+)`);
       const match = latestInvoice.invoice_number.match(regex);
       if (match) {
@@ -166,7 +177,9 @@ export async function convertQuotationToInvoiceAction(quotationId: string) {
         invoice_number: invoiceNumber,
         customer_id: quotation.customer_id,
         issue_date: new Date().toISOString().split("T")[0],
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
         currency_code: quotation.currency_code,
         status: "draft",
         notes: quotation.notes,
@@ -223,7 +236,7 @@ export async function convertQuotationToInvoiceAction(quotationId: string) {
     return { success: true, invoiceId: invoice.id };
   } catch (error) {
     console.error("Error converting quotation to invoice:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -242,10 +255,12 @@ export async function duplicateQuotationAction(quotationId: string) {
     // Get quotation with items
     const { data: quotation, error: quotationError } = await supabase
       .from("quotations")
-      .select(`
+      .select(
+        `
         *,
         quotation_items(*)
-      `)
+      `,
+      )
       .eq("id", quotationId)
       .single();
 
@@ -270,7 +285,10 @@ export async function duplicateQuotationAction(quotationId: string) {
   }
 }
 
-export async function sendQuotationEmailAction(quotationId: string, recipientEmail: string) {
+export async function sendQuotationEmailAction(
+  quotationId: string,
+  recipientEmail: string,
+) {
   const supabase = await createServerSupabaseClient();
 
   const {
@@ -285,11 +303,13 @@ export async function sendQuotationEmailAction(quotationId: string, recipientEma
     // Get quotation with customer and company profile
     const { data: quotation, error: quotationError } = await supabase
       .from("quotations")
-      .select(`
+      .select(
+        `
         *,
         customers(*),
         quotation_items(*)
-      `)
+      `,
+      )
       .eq("id", quotationId)
       .single();
 
@@ -304,12 +324,18 @@ export async function sendQuotationEmailAction(quotationId: string, recipientEma
       .single();
 
     if (profileError) {
-      throw new Error(`Failed to fetch company profile: ${profileError.message}`);
+      throw new Error(
+        `Failed to fetch company profile: ${profileError.message}`,
+      );
     }
 
     // Check if SMTP is configured
     if (!companyProfile.smtp_host || !companyProfile.smtp_username) {
-      return { success: false, error: "SMTP not configured. Please configure email settings in company profile." };
+      return {
+        success: false,
+        error:
+          "SMTP not configured. Please configure email settings in company profile.",
+      };
     }
 
     // Here you would implement the actual email sending logic
@@ -323,7 +349,9 @@ export async function sendQuotationEmailAction(quotationId: string, recipientEma
       .eq("id", quotationId);
 
     if (updateError) {
-      throw new Error(`Failed to update quotation status: ${updateError.message}`);
+      throw new Error(
+        `Failed to update quotation status: ${updateError.message}`,
+      );
     }
 
     revalidatePath("/dashboard/quotations");
