@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import {
@@ -16,11 +17,10 @@ import {
   Users,
   FileText,
   CreditCard,
-  Globe,
   BarChart3,
-  DollarSign,
   Receipt,
   FileCheck,
+  Building2,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -35,76 +35,66 @@ export default function DashboardNavbar() {
     {
       name: "Dashboard",
       href: "/dashboard",
-      icon: <Home className="h-5 w-5" />,
+      icon: <Home className="h-4 w-4" />,
     },
     {
       name: "Products",
       href: "/dashboard/products",
-      icon: <Package2 className="h-5 w-5" />,
+      icon: <Package2 className="h-4 w-4" />,
     },
     {
       name: "Customers",
       href: "/dashboard/customers",
-      icon: <Users className="h-5 w-5" />,
+      icon: <Users className="h-4 w-4" />,
     },
     {
       name: "Quotations",
       href: "/dashboard/quotations",
-      icon: <FileCheck className="h-5 w-5" />,
+      icon: <FileCheck className="h-4 w-4" />,
     },
     {
       name: "Invoices",
       href: "/dashboard/invoices",
-      icon: <FileText className="h-5 w-5" />,
+      icon: <FileText className="h-4 w-4" />,
     },
     {
       name: "Payments",
       href: "/dashboard/payments",
-      icon: <CreditCard className="h-5 w-5" />,
+      icon: <CreditCard className="h-4 w-4" />,
     },
     {
       name: "Expenses",
       href: "/dashboard/expenses",
-      icon: <Receipt className="h-5 w-5" />,
-    },
-    // {
-    //   name: "Currencies",
-    //   href: "/dashboard/currencies",
-    //   icon: <Globe className="h-5 w-5" />,
-    // },
-    {
-      name: "Company",
-      href: "/dashboard/company-profile",
-      icon: <BarChart3 className="h-5 w-5" />,
+      icon: <Receipt className="h-4 w-4" />,
     },
     {
-      name: "Financial Reports",
+      name: "Reports",
       href: "/dashboard/reports",
-      icon: <BarChart3 className="h-5 w-5" />,
+      icon: <BarChart3 className="h-4 w-4" />,
     },
   ];
 
   return (
-    <nav className="w-full border-b border-gray-200 bg-white py-4">
+    <nav className="w-full border-b border-gray-200 bg-white py-3">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <Link
             href="/"
             prefetch
-            className="text-xl font-bold flex items-center"
+            className="text-lg font-bold flex items-center gap-2"
           >
              <Image
                       src="/zenit_logo.png"
                       alt="Zenit Logo"
-                      width={120}
-                      height={40}
-                      className="h-auto w-auto object-contain"
+                      width={100}
+                      height={32}
+                      className="h-8 w-auto object-contain"
                     />
-            <span>Accounting</span>
+            <span className="hidden sm:inline">Accounting</span>
           </Link>
         </div>
 
-        <div className="hidden md:flex items-center space-x-1">
+        <div className="hidden lg:flex items-center space-x-1">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -113,20 +103,20 @@ export default function DashboardNavbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium flex items-center ${
+                className={`px-2 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${
                   isActive
                     ? "bg-gray-100 text-gray-900"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                <span className="mr-2">{item.icon}</span>
-                {item.name}
+                {item.icon}
+                <span className="hidden xl:inline">{item.name}</span>
               </Link>
             );
           })}
         </div>
 
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-2 items-center">
           <ThemeSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -134,12 +124,20 @@ export default function DashboardNavbar() {
                 <UserCircle className="h-6 w-6" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/company-profile" className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Company Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();
                   router.refresh();
                 }}
+                className="text-red-600 focus:text-red-600"
               >
                 Sign out
               </DropdownMenuItem>
@@ -149,7 +147,7 @@ export default function DashboardNavbar() {
       </div>
 
       {/* Mobile navigation */}
-      <div className="md:hidden overflow-x-auto flex whitespace-nowrap px-4 py-2 border-t border-gray-100">
+      <div className="lg:hidden overflow-x-auto flex whitespace-nowrap px-4 py-2 border-t border-gray-100 gap-1">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -158,17 +156,29 @@ export default function DashboardNavbar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center mr-2 ${
+              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 flex-shrink-0 ${
                 isActive
                   ? "bg-gray-100 text-gray-900"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
-              <span className="mr-2">{item.icon}</span>
-              {item.name}
+              {item.icon}
+              <span className="text-xs">{item.name}</span>
             </Link>
           );
         })}
+        {/* Company Profile in mobile menu */}
+        <Link
+          href="/dashboard/company-profile"
+          className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 flex-shrink-0 ${
+            pathname === "/dashboard/company-profile"
+              ? "bg-gray-100 text-gray-900"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          <Building2 className="h-4 w-4" />
+          <span className="text-xs">Company</span>
+        </Link>
       </div>
     </nav>
   );
