@@ -2,6 +2,7 @@ export {};
 
 declare global {
   interface Window {
-    duplicateInvoiceData?: any; // or replace `any` with your actual type
+    duplicateInvoiceData?: any;
+    duplicateQuotationData?: any; // or replace `any` with your actual type
   }
 }
