@@ -281,7 +281,7 @@ export async function duplicateQuotationAction(quotationId: string) {
     };
   } catch (error) {
     console.error("Error duplicating quotation:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -359,6 +359,6 @@ export async function sendQuotationEmailAction(
     return { success: true, message: "Quotation sent successfully" };
   } catch (error) {
     console.error("Error sending quotation email:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
