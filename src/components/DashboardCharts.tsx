@@ -18,6 +18,18 @@ interface ChartData {
   [key: string]: string | number;
 }
 
+interface PieLabelProps {
+  name: string;
+  value: number;
+  percent: number;
+  x: number;
+  y: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  index: number;
+}
+
 interface DashboardChartsProps {
   revenueChartData: ChartData[];
   outstandingChartData: ChartData[];
