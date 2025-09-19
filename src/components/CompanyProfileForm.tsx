@@ -249,7 +249,7 @@ export function CompanyProfileForm({
         </div>
 
         <div className="space-y-2 mt-4">
-          <Label htmlFor="email_template">Email Template</Label>
+          <Label htmlFor="email_template">Invoice Email Template</Label>
           <Textarea
             id="email_template"
             name="email_template"
@@ -264,6 +264,25 @@ export function CompanyProfileForm({
             Available placeholders: &#123;customer_name&#125;,
             &#123;invoice_number&#125;, &#123;company_name&#125;,
             &#123;total_amount&#125;, &#123;due_date&#125;
+          </p>
+        </div>
+
+        <div className="space-y-2 mt-4">
+          <Label htmlFor="quotation_email_template">Quotation Email Template</Label>
+          <Textarea
+            id="quotation_email_template"
+            name="quotation_email_template"
+            rows={6}
+            placeholder="Dear customer,&#10;&#10;Please find attached your quotation.&#10;&#10;Thank you for your interest!&#10;&#10;Best regards,&#10;Your Company"
+            defaultValue={
+              data.quotation_email_template ||
+              "Dear {customer_name},\n\nPlease find attached your quotation {quotation_number}.\n\nThank you for your interest!\n\nBest regards,\n{company_name}"
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Available placeholders: &#123;customer_name&#125;,
+            &#123;quotation_number&#125;, &#123;company_name&#125;,
+            &#123;total_amount&#125;, &#123;valid_until&#125;
           </p>
         </div>
       </div>

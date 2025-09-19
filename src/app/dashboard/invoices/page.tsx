@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Invoice, Product, Customer, InvoiceItems } from "@/app/types";
 import { duplicateInvoiceAction } from "@/app/actions";
+import { deleteInvoiceAction } from "./actions";
 import { useRouter } from "next/navigation";
 import {
   Select,
@@ -77,33 +78,18 @@ export default function InvoicesPage() {
   const handleDeleteConfirm = async () => {
     if (!invoiceToDelete) return;
 
-    const supabase = createClient();
-
-    // First delete invoice items
-    const { error: itemsError } = await supabase
-      .from("invoice_items")
-      .delete()
-      .eq("invoice_id", invoiceToDelete.id);
-
-    if (itemsError) {
-      setDeleteError("Failed to delete invoice items");
-      return;
+    try {
+      await deleteInvoiceAction(invoiceToDelete.id);
+      
+      // Remove the invoice from the local state
+      setInvoices(invoices.filter((i) => i.id !== invoiceToDelete.id));
+      setDeleteDialogOpen(false);
+      setInvoiceToDelete(null);
+      setDeleteError("");
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete invoice");
     }
-
-    // Then delete the invoice
-    const { error } = await supabase
-      .from("invoices")
-      .delete()
-      .eq("id", invoiceToDelete.id);
-
-    if (error) {
-      setDeleteError("Failed to delete invoice");
-      return;
-    }
-
-    setInvoices(invoices.filter((i) => i.id !== invoiceToDelete.id));
-    setDeleteDialogOpen(false);
-    setInvoiceToDelete(null);
   };
 
   const formatCurrency = (amount: number, currencyCode?: string) => {

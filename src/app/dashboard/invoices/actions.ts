@@ -134,3 +134,80 @@ export async function generateInvoicePdfAction(invoiceId: string) {
   // Return the data needed for PDF generation
   return { invoice, companyProfile };
 }
+
+export async function deleteInvoiceAction(invoiceId: string) {
+  const supabase = await createServerSupabaseClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
+  try {
+    // First, check if the invoice belongs to the user
+    const { data: invoice, error: checkError } = await supabase
+      .from("invoices")
+      .select("id, user_id")
+      .eq("id", invoiceId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (checkError || !invoice) {
+      throw new Error("Invoice not found or access denied");
+    }
+
+    // Delete invoice items first (foreign key constraint)
+    const { error: itemsError } = await supabase
+      .from("invoice_items")
+      .delete()
+      .eq("invoice_id", invoiceId);
+
+    if (itemsError) {
+      console.error("Error deleting invoice items:", itemsError);
+      throw new Error(`Failed to delete invoice items: ${itemsError.message}`);
+    }
+
+    // Delete any related payments
+    const { error: paymentsError } = await supabase
+      .from("payments")
+      .delete()
+      .eq("invoice_id", invoiceId);
+
+    if (paymentsError) {
+      console.error("Error deleting related payments:", paymentsError);
+      // Don't throw error here as payments might not exist
+    }
+
+    // Update quotations that reference this invoice (set converted_invoice_id to null)
+    const { error: quotationsError } = await supabase
+      .from("quotations")
+      .update({ converted_invoice_id: null })
+      .eq("converted_invoice_id", invoiceId);
+
+    if (quotationsError) {
+      console.error("Error updating quotations:", quotationsError);
+      throw new Error(`Failed to update related quotations: ${quotationsError.message}`);
+    }
+
+    // Finally delete the invoice
+    const { error: invoiceError } = await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", invoiceId)
+      .eq("user_id", user.id);
+
+    if (invoiceError) {
+      console.error("Error deleting invoice:", invoiceError);
+      throw new Error(`Failed to delete invoice: ${invoiceError.message}`);
+    }
+
+    revalidatePath("/dashboard/invoices");
+    return { success: true };
+  } catch (error) {
+    console.error("Error in deleteInvoiceAction:", error);
+    throw error;
+  }
+}

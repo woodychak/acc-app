@@ -8,27 +8,20 @@ import { createClient } from "../../../../../supabase/client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Quotation } from "@/app/types";
-import { convertQuotationToInvoiceAction, sendQuotationEmailAction } from "../actions";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { convertQuotationToInvoiceAction } from "../actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, XCircle } from "lucide-react";
 
-export default function QuotationDetailPage() {
+export default function QuotationDetailPage({
+  searchParams,
+}: {
+  searchParams?: { success?: string; error?: string; message?: string };
+}) {
   const params = useParams();
   const router = useRouter();
   const quotationId = params.id as string;
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [emailSending, setEmailSending] = useState(false);
 
   useEffect(() => {
     const fetchQuotation = async () => {
@@ -55,7 +48,6 @@ export default function QuotationDetailPage() {
 
       if (data) {
         setQuotation(data);
-        setRecipientEmail(data.customers?.email || "");
       }
       setLoading(false);
     };
@@ -80,28 +72,6 @@ export default function QuotationDetailPage() {
     } catch (error) {
       console.error("Error converting quotation:", error);
       alert("Error converting quotation to invoice");
-    }
-  };
-
-  const handleSendEmail = async () => {
-    if (!quotation || !recipientEmail) return;
-
-    setEmailSending(true);
-    try {
-      const result = await sendQuotationEmailAction(quotation.id, recipientEmail);
-
-      if (result.success) {
-        setQuotation({ ...quotation, status: "sent" });
-        setEmailDialogOpen(false);
-        alert("Quotation sent successfully!");
-      } else {
-        alert("Failed to send quotation: " + result.error);
-      }
-    } catch (error) {
-      console.error("Error sending email:", error);
-      alert("Error sending quotation email");
-    } finally {
-      setEmailSending(false);
     }
   };
 
@@ -204,14 +174,17 @@ export default function QuotationDetailPage() {
                   Edit
                 </Button>
               </Link>
-              <Button
-                variant="outline"
-                onClick={() => setEmailDialogOpen(true)}
-                disabled={quotation.status === "converted"}
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Send Email
-              </Button>
+              <form action={`/dashboard/quotations/send-email`} method="POST">
+                <input type="hidden" name="quotation_id" value={quotation.id} />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={quotation.status === "converted"}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send to Customer
+                </Button>
+              </form>
               <Button
                 onClick={handleConvertToInvoice}
                 disabled={quotation.status === "converted" || isExpired(quotation.valid_until)}
@@ -222,6 +195,32 @@ export default function QuotationDetailPage() {
               </Button>
             </div>
           </div>
+
+          {/* Success/Error Messages */}
+          {searchParams?.success === "email_sent" && (
+            <div className="mb-6">
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  Quotation email sent successfully to {quotation.customers?.email}!
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          {searchParams?.error === "email_send_failed" && (
+            <div className="mb-6">
+              <Alert className="border-red-200 bg-red-50">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  Failed to send quotation email:{" "}
+                  {searchParams.message
+                    ? decodeURIComponent(searchParams.message)
+                    : "Unknown error occurred"}
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
 
           <div className="print-area">
             <div className="bg-card rounded-xl p-6 border shadow-sm">
@@ -379,41 +378,6 @@ export default function QuotationDetailPage() {
           </div>
         </div>
       </main>
-
-      {/* Email Dialog */}
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Quotation</DialogTitle>
-            <DialogDescription>
-              Send quotation {quotation.quotation_number} to customer
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email">Recipient Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="customer@example.com"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSendEmail} 
-              disabled={emailSending || !recipientEmail}
-            >
-              {emailSending ? "Sending..." : "Send Quotation"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

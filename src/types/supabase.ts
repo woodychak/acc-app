@@ -27,6 +27,7 @@ export type Database = {
           name: string | null
           payment_terms: string | null
           prefix: string | null
+          quotation_email_template: string | null
           smtp_host: string | null
           smtp_password: string | null
           smtp_port: number | null
@@ -48,6 +49,7 @@ export type Database = {
           name?: string | null
           payment_terms?: string | null
           prefix?: string | null
+          quotation_email_template?: string | null
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
@@ -69,6 +71,7 @@ export type Database = {
           name?: string | null
           payment_terms?: string | null
           prefix?: string | null
+          quotation_email_template?: string | null
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null

@@ -43,40 +43,25 @@ export async function updateCompanyProfileAction(
   const isSetup = formData.get("setup") === "required";
 
   // 動態構造更新資料
-  const updateData: any = {};
-  if (name !== null) updateData.name = name.toString();
-  if (tel !== null) updateData.tel = tel.toString();
-  if (address !== null) updateData.address = address.toString();
-  if (contact !== null) updateData.contact = contact.toString();
-  if (payment_terms !== null)
-    updateData.payment_terms = payment_terms.toString();
-  if (default_currency !== null)
-    updateData.default_currency = default_currency.toString();
-  if (prefix !== null) updateData.prefix = prefix.toString();
-  if (bank_account !== null) updateData.bank_account = bank_account.toString();
-  if (logo_url !== null && logo_url !== "")
-    updateData.logo_url = logo_url.toString();
-  // Handle SMTP settings - always update these fields, even if empty
-  updateData.smtp_host =
-    smtp_host && smtp_host.toString().trim() !== ""
-      ? smtp_host.toString()
-      : null;
-  updateData.smtp_port =
-    smtp_port && smtp_port.toString().trim() !== ""
-      ? parseInt(smtp_port.toString(), 10) || null
-      : null;
-  updateData.smtp_username =
-    smtp_username && smtp_username.toString().trim() !== ""
-      ? smtp_username.toString()
-      : null;
-  updateData.smtp_password =
-    smtp_password && smtp_password.toString().trim() !== ""
-      ? smtp_password.toString()
-      : null;
-  updateData.email_template =
-    email_template && email_template.toString().trim() !== ""
-      ? email_template.toString()
-      : null;
+  const updateData = {
+    name: formData.get("name") as string,
+    tel: formData.get("tel") as string,
+    address: formData.get("address") as string,
+    contact: formData.get("contact") as string,
+    payment_terms: formData.get("payment_terms") as string,
+    default_currency: formData.get("default_currency") as string,
+    prefix: formData.get("prefix") as string,
+    bank_account: formData.get("bank_account") as string,
+    logo_url: formData.get("logo_url") as string,
+    smtp_host: formData.get("smtp_host") as string,
+    smtp_port: parseInt(formData.get("smtp_port") as string) || 587,
+    smtp_username: formData.get("smtp_username") as string,
+    smtp_password: formData.get("smtp_password") as string,
+    smtp_secure: formData.get("smtp_secure") as string,
+    smtp_sender: formData.get("smtp_sender") as string,
+    email_template: formData.get("email_template") as string,
+    quotation_email_template: formData.get("quotation_email_template") as string,
+  };
 
   // Handle new SMTP fields - only if they exist in the form
   const smtp_secure = formData.get("smtp_secure");
