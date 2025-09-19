@@ -60,7 +60,9 @@ export async function updateCompanyProfileAction(
     smtp_secure: formData.get("smtp_secure") as string,
     smtp_sender: formData.get("smtp_sender") as string,
     email_template: formData.get("email_template") as string,
-    quotation_email_template: formData.get("quotation_email_template") as string,
+    quotation_email_template: formData.get(
+      "quotation_email_template",
+    ) as string,
   };
 
   // Handle new SMTP fields - only if they exist in the form
@@ -71,13 +73,13 @@ export async function updateCompanyProfileAction(
     updateData.smtp_secure =
       smtp_secure && smtp_secure.toString().trim() !== ""
         ? smtp_secure.toString()
-        : null;
+        : "";
   }
   if (smtp_sender !== null) {
     updateData.smtp_sender =
       smtp_sender && smtp_sender.toString().trim() !== ""
         ? smtp_sender.toString()
-        : null;
+        : "";
   }
 
   // Updated validation: Only require Company Name, Tel, and Contact Info for completion
@@ -95,7 +97,10 @@ export async function updateCompanyProfileAction(
 
     if (error) {
       console.error("Update company profile failed:", error.message);
-      return { type: "error", message: `Failed to save company profile: ${error.message}` };
+      return {
+        type: "error",
+        message: `Failed to save company profile: ${error.message}`,
+      };
     }
 
     // Ensure default currencies exist for the user
@@ -109,38 +114,42 @@ export async function updateCompanyProfileAction(
     return { type: "success", message: "公司資料已成功更新。" };
   } catch (err) {
     console.error("Unexpected error:", err);
-    return { type: "error", message: "An unexpected error occurred while saving" };
+    return {
+      type: "error",
+      message: "An unexpected error occurred while saving",
+    };
   }
 }
 
 // Helper function to ensure default currencies exist for a user
 async function ensureDefaultCurrencies(supabase: any, userId: string) {
   const defaultCurrencies = [
-    { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$', is_default: true },
-    { code: 'USD', name: 'US Dollar', symbol: '$', is_default: false },
-    { code: 'EUR', name: 'Euro', symbol: '€', is_default: false },
-    { code: 'GBP', name: 'British Pound', symbol: '£', is_default: false },
-    { code: 'JPY', name: 'Japanese Yen', symbol: '¥', is_default: false },
-    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', is_default: false },
-    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', is_default: false },
-    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', is_default: false },
-    { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$', is_default: false }
+    { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$", is_default: true },
+    { code: "USD", name: "US Dollar", symbol: "$", is_default: false },
+    { code: "EUR", name: "Euro", symbol: "€", is_default: false },
+    { code: "GBP", name: "British Pound", symbol: "£", is_default: false },
+    { code: "JPY", name: "Japanese Yen", symbol: "¥", is_default: false },
+    { code: "CNY", name: "Chinese Yuan", symbol: "¥", is_default: false },
+    { code: "CAD", name: "Canadian Dollar", symbol: "C$", is_default: false },
+    { code: "AUD", name: "Australian Dollar", symbol: "A$", is_default: false },
+    { code: "SGD", name: "Singapore Dollar", symbol: "S$", is_default: false },
   ];
 
   for (const currency of defaultCurrencies) {
-    await supabase
-      .from('currencies')
-      .upsert({
+    await supabase.from("currencies").upsert(
+      {
         user_id: userId,
         code: currency.code,
         name: currency.name,
         symbol: currency.symbol,
         is_default: currency.is_default,
-        is_active: true
-      }, {
-        onConflict: 'user_id,code',
-        ignoreDuplicates: true
-      });
+        is_active: true,
+      },
+      {
+        onConflict: "user_id,code",
+        ignoreDuplicates: true,
+      },
+    );
   }
 }
 
