@@ -63,6 +63,7 @@ export async function updateCompanyProfileAction(
     quotation_email_template: formData.get(
       "quotation_email_template",
     ) as string,
+    is_complete: false,
   };
 
   // Handle new SMTP fields - only if they exist in the form
