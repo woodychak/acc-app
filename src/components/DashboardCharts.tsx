@@ -1,6 +1,13 @@
-'use client';
+"use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, FileText } from "lucide-react";
 
@@ -8,6 +15,7 @@ interface ChartData {
   name: string;
   value: number;
   formattedValue: string;
+  [key: string]: string | number;
 }
 
 interface DashboardChartsProps {
@@ -17,13 +25,20 @@ interface DashboardChartsProps {
   hasOutstandingData: boolean;
 }
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+const COLORS = [
+  "#10b981",
+  "#3b82f6",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+];
 
 export default function DashboardCharts({
   revenueChartData,
   outstandingChartData,
   hasRevenueData,
-  hasOutstandingData
+  hasOutstandingData,
 }: DashboardChartsProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -43,19 +58,25 @@ export default function DashboardCharts({
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(1)}%`
+                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {revenueChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value, name) => [
-                      revenueChartData.find(item => item.name === name)?.formattedValue || value,
-                      name
+                      revenueChartData.find((item) => item.name === name)
+                        ?.formattedValue || value,
+                      name,
                     ]}
                   />
                   <Legend />
@@ -82,19 +103,25 @@ export default function DashboardCharts({
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(1)}%`
+                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {outstandingChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value, name) => [
-                      outstandingChartData.find(item => item.name === name)?.formattedValue || value,
-                      name
+                      outstandingChartData.find((item) => item.name === name)
+                        ?.formattedValue || value,
+                      name,
                     ]}
                   />
                   <Legend />
