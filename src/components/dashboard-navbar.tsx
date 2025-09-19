@@ -142,7 +142,7 @@ export default function DashboardNavbar() {
               <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  router.refresh();
+                  router.push('/sign-in');
                 }}
                 className="text-destructive focus:text-destructive"
               >
