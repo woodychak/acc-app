@@ -11,7 +11,7 @@ import {
   addCurrencyAction,
   removeCurrencyAction,
   setDefaultCurrencyAction,
-} from "@/app/dashboard/company-profile/actions";
+} from "@/app/dashboard/currencies/actions";
 import {
   Select,
   SelectContent,

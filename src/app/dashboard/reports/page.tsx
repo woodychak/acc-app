@@ -37,10 +37,8 @@ export default async function ReportsPage() {
     amount: number,
     currency: string = reportData.defaultCurrency,
   ) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency,
-    }).format(amount);
+    const symbol = reportData.currencySymbols[currency] || currency;
+    return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatMultiCurrency = (currencyAmounts: Record<string, number>) => {

@@ -83,6 +83,99 @@ export type Database = {
         }
         Relationships: []
       }
+      company_profiles: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          bank_swift_code: string | null
+          company_address: string | null
+          company_email: string | null
+          company_name: string
+          company_phone: string | null
+          company_website: string | null
+          created_at: string | null
+          default_currency: string | null
+          id: string
+          invoice_prefix: string | null
+          is_complete: boolean | null
+          quotation_email_template: string | null
+          quotation_prefix: string | null
+          registration_number: string | null
+          smtp_auth_required: boolean | null
+          smtp_from_email: string | null
+          smtp_from_name: string | null
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: number | null
+          smtp_security: string | null
+          smtp_username: string | null
+          tax_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bank_swift_code?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name: string
+          company_phone?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          default_currency?: string | null
+          id?: string
+          invoice_prefix?: string | null
+          is_complete?: boolean | null
+          quotation_email_template?: string | null
+          quotation_prefix?: string | null
+          registration_number?: string | null
+          smtp_auth_required?: boolean | null
+          smtp_from_email?: string | null
+          smtp_from_name?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_security?: string | null
+          smtp_username?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bank_swift_code?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string
+          company_phone?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          default_currency?: string | null
+          id?: string
+          invoice_prefix?: string | null
+          is_complete?: boolean | null
+          quotation_email_template?: string | null
+          quotation_prefix?: string | null
+          registration_number?: string | null
+          smtp_auth_required?: boolean | null
+          smtp_from_email?: string | null
+          smtp_from_name?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_security?: string | null
+          smtp_username?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       currencies: {
         Row: {
           code: string

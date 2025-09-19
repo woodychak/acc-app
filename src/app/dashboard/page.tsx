@@ -15,6 +15,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../../supabase/server";
 import { getDashboardData } from "./actions";
+import DashboardCharts from "@/components/DashboardCharts";
 
 export default async function Dashboard() {
   const supabase = await createServerSupabaseClient();
@@ -29,11 +30,22 @@ export default async function Dashboard() {
 
   const dashboardData = await getDashboardData();
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+  const formatCurrency = (amount: number, currency?: string) => {
+    const currencyCode = currency || dashboardData.defaultCurrency;
+    const symbol = dashboardData.currencySymbols[currencyCode] || currencyCode;
+    return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatMultiCurrency = (currencyAmounts: Record<string, number>) => {
+    const entries = Object.entries(currencyAmounts);
+    if (entries.length === 0) return formatCurrency(0);
+    if (entries.length === 1) {
+      const [currency, amount] = entries[0];
+      return formatCurrency(amount, currency);
+    }
+    return entries
+      .map(([currency, amount]) => formatCurrency(amount, currency))
+      .join(" + ");
   };
 
   // Dashboard modules
@@ -82,6 +94,24 @@ export default async function Dashboard() {
     },
   ];
 
+  // Prepare chart data for revenue by month
+  const chartMonths = Object.keys(dashboardData.revenueByMonth).slice(-6); // Last 6 months
+  const hasRevenueData = Object.keys(dashboardData.revenueByCurrency).length > 0;
+  const hasOutstandingData = Object.keys(dashboardData.outstandingByCurrency).length > 0;
+
+  // Prepare data for pie charts
+  const revenueChartData = Object.entries(dashboardData.revenueByCurrency).map(([currency, amount]) => ({
+    name: currency,
+    value: amount,
+    formattedValue: formatCurrency(amount, currency)
+  }));
+
+  const outstandingChartData = Object.entries(dashboardData.outstandingByCurrency).map(([currency, amount]) => ({
+    name: currency,
+    value: amount,
+    formattedValue: formatCurrency(amount, currency)
+  }));
+
   return (
     <>
       <DashboardNavbar />
@@ -109,7 +139,7 @@ export default async function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(dashboardData.totalRevenue)}
+                    {formatMultiCurrency(dashboardData.revenueByCurrency)}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {dashboardData.totalRevenue > 0
@@ -127,7 +157,7 @@ export default async function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-amber-600">
-                    {formatCurrency(dashboardData.totalOutstanding)}
+                    {formatMultiCurrency(dashboardData.outstandingByCurrency)}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {dashboardData.totalOutstanding > 0
@@ -156,6 +186,60 @@ export default async function Dashboard() {
               </Card>
             </div>
           </section>
+
+          {/* Charts Section */}
+          {(hasRevenueData || hasOutstandingData) && (
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Financial Charts</h2>
+              <DashboardCharts
+                revenueChartData={revenueChartData}
+                outstandingChartData={outstandingChartData}
+                hasRevenueData={hasRevenueData}
+                hasOutstandingData={hasOutstandingData}
+              />
+
+              {/* Monthly Revenue Trend - keeping as bar chart since it shows time series data */}
+              {chartMonths.length > 0 && (
+                <Card className="mt-6">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Revenue Trend (Last 6 Months)</CardTitle>
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      {chartMonths.map((month) => {
+                        const monthData = dashboardData.revenueByMonth[month] || {};
+                        const monthTotal = Object.values(monthData).reduce((sum, amount) => sum + amount, 0);
+                        const maxMonthTotal = Math.max(...chartMonths.map(m => 
+                          Object.values(dashboardData.revenueByMonth[m] || {}).reduce((sum, amount) => sum + amount, 0)
+                        ));
+                        const percentage = maxMonthTotal > 0 ? (monthTotal / maxMonthTotal) * 100 : 0;
+
+                        return (
+                          <div key={month} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">{month}</span>
+                              <div className="text-sm text-blue-600 font-medium">
+                                {Object.entries(monthData).map(([currency, amount]) => 
+                                  formatCurrency(amount, currency)
+                                ).join(" + ") || formatCurrency(0)}
+                              </div>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div
+                                className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                                style={{ width: `${percentage}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          )}
 
           {/* Modules Grid */}
           <section>

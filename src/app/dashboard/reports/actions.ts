@@ -17,7 +17,7 @@ export async function getFinancialReports() {
   try {
     // Get company profile for default currency
     const { data: companyProfile, error: companyError } = await supabase
-      .from("company_profiles")
+      .from("company_profile")
       .select("default_currency")
       .eq("user_id", user.id)
       .single();
@@ -27,6 +27,35 @@ export async function getFinancialReports() {
     }
 
     const defaultCurrency = companyProfile?.default_currency || "USD";
+
+    // Get all user currencies with symbols
+    const { data: currencies, error: currenciesError } = await supabase
+      .from("currencies")
+      .select("code, symbol")
+      .eq("user_id", user.id);
+
+    if (currenciesError) {
+      console.error("Error fetching currencies:", currenciesError);
+    }
+
+    // Create currency symbol map
+    const currencySymbols = currencies?.reduce((acc, curr) => {
+      acc[curr.code] = curr.symbol;
+      return acc;
+    }, {} as Record<string, string>) || {};
+
+    // Add default symbols for common currencies if not found
+    const defaultSymbols: Record<string, string> = {
+      USD: "US$",
+      EUR: "€",
+      GBP: "£",
+      JPY: "¥",
+      CAD: "C$",
+      AUD: "A$",
+      HKD: "HK$",
+      SGD: "S$",
+      CNY: "¥"
+    };
 
     // Get revenue data from payments
     const { data: payments, error: paymentsError } = await supabase
@@ -185,6 +214,7 @@ export async function getFinancialReports() {
       revenueByCurrency,
       expensesByCurrency,
       outstandingByCurrency,
+      currencySymbols: { ...defaultSymbols, ...currencySymbols },
     };
   } catch (error) {
     console.error("Error in getFinancialReports:", error);

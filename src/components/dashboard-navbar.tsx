@@ -21,6 +21,7 @@ import {
   Receipt,
   FileCheck,
   Building2,
+  Coins,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -75,13 +76,13 @@ export default function DashboardNavbar() {
   ];
 
   return (
-    <nav className="w-full border-b border-gray-200 bg-white py-3">
+    <nav className="w-full border-b bg-background py-3">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <Link
             href="/"
             prefetch
-            className="text-lg font-bold flex items-center gap-2"
+            className="text-lg font-bold flex items-center gap-2 text-foreground"
           >
              <Image
                       src="/zenit_logo.png"
@@ -103,10 +104,10 @@ export default function DashboardNavbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-2 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${
+                className={`px-2 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors ${
                   isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
                 }`}
               >
                 {item.icon}
@@ -131,13 +132,19 @@ export default function DashboardNavbar() {
                   Company Profile
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/currencies" className="flex items-center gap-2">
+                  <Coins className="h-4 w-4" />
+                  Currency Settings
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();
                   router.refresh();
                 }}
-                className="text-red-600 focus:text-red-600"
+                className="text-destructive focus:text-destructive"
               >
                 Sign out
               </DropdownMenuItem>
@@ -147,7 +154,7 @@ export default function DashboardNavbar() {
       </div>
 
       {/* Mobile navigation */}
-      <div className="lg:hidden overflow-x-auto flex whitespace-nowrap px-4 py-2 border-t border-gray-100 gap-1">
+      <div className="lg:hidden overflow-x-auto flex whitespace-nowrap px-4 py-2 border-t gap-1">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -156,10 +163,10 @@ export default function DashboardNavbar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 flex-shrink-0 ${
+              className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 flex-shrink-0 transition-colors ${
                 isActive
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
               }`}
             >
               {item.icon}
@@ -170,10 +177,10 @@ export default function DashboardNavbar() {
         {/* Company Profile in mobile menu */}
         <Link
           href="/dashboard/company-profile"
-          className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 flex-shrink-0 ${
+          className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 flex-shrink-0 transition-colors ${
             pathname === "/dashboard/company-profile"
-              ? "bg-gray-100 text-gray-900"
-              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
           }`}
         >
           <Building2 className="h-4 w-4" />
