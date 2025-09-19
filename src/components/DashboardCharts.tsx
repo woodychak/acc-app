@@ -70,7 +70,7 @@ export default function DashboardCharts({
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(props: PieLabelRenderProps) => {
+                    label={(props: PieLabelProps) => {
                       const { name, percent } = props;
                       return `${name} ${(percent! * 100).toFixed(1)}%`; // `percent!` ensures TS knows it's not undefined
                     }}
