@@ -70,9 +70,9 @@ export default function DashboardCharts({
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(props: PieLabelProps) => {
+                    label={(props: any) => {
                       const { name, percent } = props;
-                      return `${name} ${(percent! * 100).toFixed(1)}%`; // `percent!` ensures TS knows it's not undefined
+                      return `${name} ${(percent * 100).toFixed(1)}%`;
                     }}
                     outerRadius={80}
                     fill="#8884d8"
