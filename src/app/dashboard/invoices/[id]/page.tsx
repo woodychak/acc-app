@@ -7,6 +7,7 @@ import {
   Printer,
   CheckCircle,
   XCircle,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -141,6 +142,12 @@ export default async function InvoiceDetailPage({
               <form action={`/api/invoices/${params.id}/pdf`} method="GET">
                 <Button type="submit" variant="outline">
                   <Download className="h-4 w-4 mr-2" /> Save PDF
+                </Button>
+              </form>
+
+              <form action={`/api/invoices/${params.id}/delivery-note`} method="GET">
+                <Button type="submit" variant="outline">
+                  <FileText className="h-4 w-4 mr-2" /> DN
                 </Button>
               </form>
 
