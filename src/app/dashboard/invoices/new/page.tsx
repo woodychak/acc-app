@@ -598,24 +598,10 @@ export default function NewInvoicePage() {
                                 }
                                 className="w-full text-sm font-medium"
                               />
-                              <Textarea
-                                name={`items[${index}][product_description]`}
-                                placeholder="Product description"
-                                value={item.description || ""}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "description",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full text-xs"
-                                rows={2}
-                              />
                               <div className="flex items-center">
                                 <Input
                                   name={`items[${index}][description]`}
-                                  placeholder="Custom line description"
+                                  placeholder="Item description"
                                   value={item.description || ""}
                                   onChange={(e) =>
                                     handleItemChange(

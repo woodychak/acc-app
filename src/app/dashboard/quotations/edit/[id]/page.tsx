@@ -7,12 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Plus, Trash2, Search } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "../../../../../../supabase/client";
-import { useEffect, useState, useRef } from "react";
-import { Invoice, Product, Customer, InvoiceItems } from "@/app/types";
+import { useEffect, useState, useRef, FormEvent } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Customer, Quotation } from "@/app/types";
 
-type InvoiceItem = {
+type QuotationItem = {
   id: number;
   product_id: string;
   product_name: string;
@@ -20,23 +20,38 @@ type InvoiceItem = {
   quantity: number;
   unit_price: number;
   tax_rate: number;
-  tax_amount?: number;
-  original_id?: string;
 };
 
-export default function EditInvoicePage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
+type Product = {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  tax_rate: number;
+  description: string;
+};
 
-  // Change the type annotation here to explicitly allow null or empty array
-  const [customers, setCustomers] = useState<Customer[] | null>(null);
+export default function EditQuotationPage() {
+  const router = useRouter();
+  const params = useParams();
+  const quotationId = params.id as string;
+  const formRef = useRef(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
+  const [subtotal, setSubtotal] = useState(0);
+  const [taxTotal, setTaxTotal] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [activeItemIndex, setActiveItemIndex] = useState(0);
+  const [defaultCurrency, setDefaultCurrency] = useState("HKD");
   const [currencies, setCurrencies] = useState<
     Array<{
       id: string;
@@ -46,23 +61,9 @@ export default function EditInvoicePage({
       is_default: boolean;
     }>
   >([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItems[]>([]);
-  const [subtotal, setSubtotal] = useState(0);
-  const [taxTotal, setTaxTotal] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [discount, setDiscount] = useState(0);
-  const [showProductSearch, setShowProductSearch] = useState(false);
-  const [activeItemIndex, setActiveItemIndex] = useState(0);
-
-  const [defaultCurrency, setDefaultCurrency] = useState("HKD");
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    const fetchQuotationData = async () => {
       const supabase = createClient();
       const {
         data: { user },
@@ -73,29 +74,61 @@ export default function EditInvoicePage({
         return;
       }
 
-      // Fetch invoice with items
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from("invoices")
-        .select(
-          `
+      // Fetch quotation with items
+      const { data: quotationData, error: quotationError } = await supabase
+        .from("quotations")
+        .select(`
           *,
-          invoice_items(*)
-        `,
-        )
-        .eq("id", params.id)
+          quotation_items(*)
+        `)
+        .eq("id", quotationId)
+        .eq("user_id", user.id)
         .single();
 
-      if (invoiceError || !invoiceData) {
-        console.error("Error fetching invoice:", invoiceError);
-        router.push("/dashboard/invoices");
+      if (quotationError || !quotationData) {
+        setError("Quotation not found");
+        setLoading(false);
         return;
       }
 
-      setInvoice(invoiceData);
-      setDiscount(invoiceData.discount_amount || 0);
-      setDefaultCurrency(invoiceData.currency_code || "HKD");
+      setQuotation(quotationData);
+      setDiscount(quotationData.discount_amount || 0);
 
-      // Fetch products first
+      // Convert quotation items to the format expected by the form
+      if (quotationData.quotation_items && quotationData.quotation_items.length > 0) {
+        const items = quotationData.quotation_items.map((item: any, index: number) => ({
+          id: index,
+          product_id: item.product_id || "",
+          product_name: "", // Will be populated from products if needed
+          description: item.description || "",
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || 0,
+          tax_rate: item.tax_rate || 0,
+        }));
+        setQuotationItems(items);
+      } else {
+        setQuotationItems([{
+          id: 0,
+          product_id: "",
+          product_name: "",
+          description: "",
+          quantity: 1,
+          unit_price: 0,
+          tax_rate: 0,
+        }]);
+      }
+
+      // Fetch customers
+      const { data: customersData } = await supabase
+        .from("customers")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      if (customersData) {
+        setCustomers(customersData);
+      }
+
+      // Fetch products
       const { data: productsData } = await supabase
         .from("products")
         .select("*")
@@ -105,66 +138,26 @@ export default function EditInvoicePage({
       if (productsData) {
         setProducts(productsData);
         setFilteredProducts(productsData);
-      }
-
-      // Format invoice items and populate product names
-      const items = invoiceData.invoice_items.map(
-        (
-          item: {
-            product_id?: string;
-            description?: string;
-            quantity?: number;
-            unit_price?: number;
-            tax_rate?: number;
-          },
-          index: number,
-        ) => {
-          // Find the product to get the name
-          const product = productsData?.find(p => p.id === item.product_id);
-          
-          return {
-            id: index,
-            product_id: item.product_id || "",
-            product_name: product ? product.name : "", // Populate product name from products data
-            description: item.description || "",
-            quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            tax_rate: item.tax_rate || 0,
-          };
+        
+        // Populate product names for existing items
+        if (quotationData.quotation_items && quotationData.quotation_items.length > 0) {
+          const updatedItems = quotationData.quotation_items.map((item: any, index: number) => {
+            const product = productsData.find(p => p.id === item.product_id);
+            return {
+              id: index,
+              product_id: item.product_id || "",
+              product_name: product ? product.name : "",
+              description: item.description || "",
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              tax_rate: item.tax_rate || 0,
+            };
+          });
+          setQuotationItems(updatedItems);
         }
-      );
-
-      setInvoiceItems(
-        items.length > 0
-          ? items
-          : [
-              {
-                id: 0,
-                product_id: "",
-                product_name: "",
-                description: "",
-                quantity: 1,
-                unit_price: 0,
-                tax_rate: 0,
-              },
-            ],
-      );
-
-      // Fetch customers
-      const { data: customersData, error } = await supabase
-        .from("customers")
-        .select("id, name")
-        .order("name", { ascending: true });
-
-      if (error) {
-        console.error("Error fetching customers:", error.message);
-        setCustomers([]); // Set to empty array if there's an error
-      } else if (customersData) {
-        // Use type assertion to handle the potential null case
-        setCustomers(customersData as Customer[]);
       }
 
-      // Fetch currencies for the current user
+      // Fetch currencies
       const { data: currenciesData } = await supabase
         .from("currencies")
         .select("*")
@@ -175,18 +168,23 @@ export default function EditInvoicePage({
 
       setCurrencies(currenciesData || []);
 
+      const defaultCurr = currenciesData?.find((c) => c.is_default)?.code || "HKD";
+      setDefaultCurrency(defaultCurr);
+
       setLoading(false);
     };
 
-    fetchData();
-  }, [params.id, router]);
+    if (quotationId) {
+      fetchQuotationData();
+    }
+  }, [quotationId]);
 
-  // Calculate totals whenever invoice items change
+  // Calculate totals whenever quotation items change
   useEffect(() => {
     let newSubtotal = 0;
     let newTaxTotal = 0;
 
-    invoiceItems.forEach((item) => {
+    quotationItems.forEach((item) => {
       const lineTotal = item.quantity * item.unit_price;
       newSubtotal += lineTotal;
 
@@ -198,71 +196,65 @@ export default function EditInvoicePage({
     setSubtotal(newSubtotal);
     setTaxTotal(newTaxTotal);
     setTotal(newSubtotal + newTaxTotal - discount);
-  }, [invoiceItems, discount]);
+  }, [quotationItems, discount]);
 
   // Filter products based on search term
   useEffect(() => {
-    if (!searchTerm) {
+    if (searchTerm.trim() === "") {
       setFilteredProducts(products);
-      return;
+    } else {
+      const filtered = products.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.sku &&
+            product.sku.toLowerCase().includes(searchTerm.toLowerCase())),
+      );
+      setFilteredProducts(filtered);
     }
-
-    const lowerSearch = searchTerm.toLowerCase();
-
-    setFilteredProducts(
-      products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(lowerSearch) ||
-          (p.sku && p.sku.toLowerCase().includes(lowerSearch)),
-      ),
-    );
   }, [searchTerm, products]);
 
   const handleAddItem = () => {
-    setInvoiceItems([
-      ...invoiceItems,
+    setQuotationItems([
+      ...quotationItems,
       {
-        id: invoiceItems.length,
+        id: quotationItems.length,
         product_id: "",
         product_name: "",
         description: "",
         quantity: 1,
         unit_price: 0,
         tax_rate: 0,
-        tax_amount: 0,
       },
     ]);
   };
 
   const handleRemoveItem = (index: number) => {
-    const newItems = [...invoiceItems];
+    const newItems = [...quotationItems];
     newItems.splice(index, 1);
-    setInvoiceItems(newItems);
+    setQuotationItems(newItems);
   };
 
-  const handleItemChange = (
+  const handleItemChange = <K extends keyof QuotationItem>(
     index: number,
-    field: keyof InvoiceItems,
-    value: string | number | undefined,
+    field: K,
+    value: QuotationItem[K],
   ) => {
-    const newItems = [...invoiceItems];
-    (newItems[index] as any)[field] = value; // 用 any 暫時跳過型別檢查
-    setInvoiceItems(newItems);
+    const newItems = [...quotationItems];
+    newItems[index][field] = value;
+    setQuotationItems(newItems);
   };
 
-  // 選擇產品
   const handleProductSelect = (product: Product, index: number) => {
-    const newItems = [...invoiceItems];
+    const newItems = [...quotationItems];
     newItems[index].product_id = product.id;
-    newItems[index].product_name = product.name; // for UI only
+    newItems[index].product_name = product.name;
     newItems[index].description = product.description;
     newItems[index].unit_price = product.price;
     newItems[index].tax_rate = product.tax_rate || 0;
-    setInvoiceItems(newItems);
+    setQuotationItems(newItems);
     setShowProductSearch(false);
   };
 
-  // 打開產品搜尋視窗
   const openProductSearch = (index: number) => {
     setActiveItemIndex(index);
     setShowProductSearch(true);
@@ -271,18 +263,17 @@ export default function EditInvoicePage({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: defaultCurrency,
+      currency: quotation?.currency_code || defaultCurrency,
     }).format(amount);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError("");
 
     try {
-      // Make sure at least one item has a description
-      const hasValidItems = invoiceItems.some(
+      const hasValidItems = quotationItems.some(
         (item) => item.description.trim() !== "",
       );
       if (!hasValidItems) {
@@ -292,127 +283,74 @@ export default function EditInvoicePage({
       }
 
       const formData = new FormData(formRef.current!);
-      if (!invoice) {
-        setError("Invoice data not loaded.");
-        setIsSubmitting(false);
-        return;
-      }
-      formData.append("id", invoice.id);
-
-      // Add calculated values
-      formData.set("subtotal", subtotal.toString());
-      formData.set("tax_amount", taxTotal.toString());
-      formData.set("total_amount", total.toString());
-
-      // Add invoice items with their original IDs if they exist
-      invoiceItems.forEach((item, index) => {
-        if (item.original_id) {
-          formData.append(`items[${index}][id]`, item.original_id);
-        }
-      });
-
-      // Make sure currency is one of the supported currencies
-      const currency = formData.get("currency_code");
-      const supportedCurrencies = [
-        "HKD",
-        "USD",
-        "EUR",
-        "GBP",
-        "JPY",
-        "CNY",
-        "CAD",
-        "AUD",
-        "SGD",
-      ];
-      if (!supportedCurrencies.includes(String(currency))) {
-        formData.set("currency_code", "HKD"); // Default to HKD if not supported
-      }
-
-      // Submit the form
       const supabase = createClient();
 
-      // First, update the invoice
-      const { error: invoiceError } = await supabase
-        .from("invoices")
+      // Update quotation
+      const { error: quotationError } = await supabase
+        .from("quotations")
         .update({
-          invoice_number: formData.get("invoice_number"),
           customer_id: formData.get("customer_id"),
           issue_date: formData.get("issue_date"),
-          due_date: formData.get("due_date"),
+          valid_until: formData.get("valid_until"),
           currency_code: formData.get("currency_code"),
           status: formData.get("status"),
           notes: formData.get("notes"),
-          discount_amount: Number(formData.get("discount_amount") || 0),
-          subtotal,
+          terms_conditions: formData.get("terms_conditions"),
+          discount_amount: discount,
+          subtotal: subtotal,
           tax_amount: taxTotal,
           total_amount: total,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", invoice.id);
+        .eq("id", quotationId);
 
-      if (invoiceError) {
-        throw new Error(`Failed to update invoice: ${invoiceError.message}`);
+      if (quotationError) {
+        throw new Error(`Failed to update quotation: ${quotationError.message}`);
       }
 
-      // Delete all existing invoice items
+      // Delete existing quotation items
       const { error: deleteError } = await supabase
-        .from("invoice_items")
+        .from("quotation_items")
         .delete()
-        .eq("invoice_id", invoice.id);
+        .eq("quotation_id", quotationId);
 
       if (deleteError) {
-        throw new Error(
-          `Failed to update invoice items: ${deleteError.message}`,
-        );
+        throw new Error(`Failed to delete existing items: ${deleteError.message}`);
       }
 
-      // Create new invoice items
-      const items = [];
-      for (let i = 0; formData.has(`items[${i}][description]`); i++) {
-        const quantity = Number(formData.get(`items[${i}][quantity]`));
-        const unitPrice = Number(formData.get(`items[${i}][unit_price]`));
-        const taxRate = Number(formData.get(`items[${i}][tax_rate]`));
-        const lineTotal = quantity * unitPrice;
-        const taxAmount = lineTotal * (taxRate / 100);
-        const productId = formData.get(`items[${i}][product_id]`) as string;
-
-        items.push({
-          invoice_id: invoice.id,
-          product_id: productId && productId.trim() !== "" ? productId : null,
-          description: formData.get(`items[${i}][description]`),
-          quantity,
-          unit_price: unitPrice,
-          tax_rate: taxRate,
-          tax_amount: taxAmount,
-          line_total: lineTotal,
+      // Insert updated quotation items
+      const items = quotationItems
+        .filter(item => item.description.trim() !== "")
+        .map((item) => {
+          const lineTotal = item.quantity * item.unit_price;
+          const taxAmount = lineTotal * (item.tax_rate / 100);
+          
+          return {
+            quotation_id: quotationId,
+            product_id: item.product_id && item.product_id.trim() !== "" ? item.product_id : null,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            tax_rate: item.tax_rate,
+            tax_amount: taxAmount,
+            line_total: lineTotal,
+          };
         });
-      }
 
       if (items.length > 0) {
-        const { error: itemsError } = await supabase
-          .from("invoice_items")
+        const { error: itemError } = await supabase
+          .from("quotation_items")
           .insert(items);
 
-        if (itemsError) {
-          throw new Error(
-            `Failed to create invoice items: ${itemsError.message}`,
-          );
+        if (itemError) {
+          throw new Error(`Failed to create quotation items: ${itemError.message}`);
         }
       }
 
-      router.push(`/dashboard/invoices/${invoice.id}`);
-    } catch (error) {
-      console.error("Error updating invoice:", error);
-      if (error instanceof Error) {
-        setError(
-          error.message ||
-            "Failed to update invoice. Please check all fields and try again.",
-        );
-      } else {
-        setError(
-          "Failed to update invoice. Please check all fields and try again.",
-        );
-      }
+      router.push(`/dashboard/quotations/${quotationId}`);
+    } catch (error: any) {
+      console.error("Error updating quotation:", error);
+      setError("Failed to update quotation. Please check all fields and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -424,13 +362,8 @@ export default function EditInvoicePage({
         <DashboardNavbar />
         <main className="w-full">
           <div className="container mx-auto px-4 py-8">
-            <div className="flex items-center mb-6">
-              <Link href="/dashboard/invoices" className="mr-4">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <h1 className="text-3xl font-bold">Loading invoice...</h1>
+            <div className="bg-card rounded-xl p-8 border shadow-sm flex justify-center">
+              <p>Loading quotation...</p>
             </div>
           </div>
         </main>
@@ -438,19 +371,20 @@ export default function EditInvoicePage({
     );
   }
 
-  if (!invoice) {
+  if (!quotation) {
     return (
       <>
         <DashboardNavbar />
         <main className="w-full">
           <div className="container mx-auto px-4 py-8">
-            <div className="flex items-center mb-6">
-              <Link href="/dashboard/invoices" className="mr-4">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
+            <div className="bg-card rounded-xl p-8 border shadow-sm text-center">
+              <h2 className="text-2xl font-semibold mb-2">Quotation not found</h2>
+              <p className="text-muted-foreground mb-4">
+                The quotation you're trying to edit doesn't exist or you don't have permission to edit it.
+              </p>
+              <Link href="/dashboard/quotations">
+                <Button>Back to Quotations</Button>
               </Link>
-              <h1 className="text-3xl font-bold">Invoice not found</h1>
             </div>
           </div>
         </main>
@@ -464,15 +398,15 @@ export default function EditInvoicePage({
       <main className="w-full">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center mb-6">
-            <Link href="/dashboard/invoices" className="mr-4">
+            <Link href={`/dashboard/quotations/${quotationId}`} className="mr-4">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold">Edit Invoice</h1>
+              <h1 className="text-3xl font-bold">Edit Quotation {quotation.quotation_number}</h1>
               <p className="text-muted-foreground">
-                Update invoice {invoice.invoice_number}
+                Update quotation details and items
               </p>
             </div>
           </div>
@@ -485,16 +419,16 @@ export default function EditInvoicePage({
 
           <div className="bg-card rounded-xl p-6 border shadow-sm">
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
-              {/* Invoice Header */}
+              {/* Quotation Header */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="invoice_number">Invoice Number *</Label>
+                  <Label htmlFor="quotation_number">Quotation Number</Label>
                   <Input
-                    id="invoice_number"
-                    name="invoice_number"
-                    placeholder="INV-0001"
-                    defaultValue={invoice.invoice_number}
-                    required
+                    id="quotation_number"
+                    name="quotation_number"
+                    value={quotation.quotation_number}
+                    readOnly
+                    className="bg-gray-50"
                   />
                 </div>
 
@@ -504,7 +438,7 @@ export default function EditInvoicePage({
                     id="customer_id"
                     name="customer_id"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    defaultValue={invoice.customer_id}
+                    defaultValue={quotation.customer_id}
                     required
                   >
                     <option value="">Select a customer</option>
@@ -522,7 +456,7 @@ export default function EditInvoicePage({
                     id="currency_code"
                     name="currency_code"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    defaultValue={invoice.currency_code}
+                    defaultValue={quotation.currency_code}
                   >
                     {currencies?.map((currency) => (
                       <option key={currency.id} value={currency.code}>
@@ -538,18 +472,18 @@ export default function EditInvoicePage({
                     id="issue_date"
                     name="issue_date"
                     type="date"
-                    defaultValue={invoice.issue_date}
+                    defaultValue={quotation.issue_date}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="due_date">Due Date *</Label>
+                  <Label htmlFor="valid_until">Valid Until *</Label>
                   <Input
-                    id="due_date"
-                    name="due_date"
+                    id="valid_until"
+                    name="valid_until"
                     type="date"
-                    defaultValue={invoice.due_date}
+                    defaultValue={quotation.valid_until}
                     required
                   />
                 </div>
@@ -560,64 +494,46 @@ export default function EditInvoicePage({
                     id="status"
                     name="status"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    defaultValue={invoice.status}
+                    defaultValue={quotation.status}
                   >
                     <option value="draft">Draft</option>
                     <option value="sent">Sent</option>
-                    <option value="paid">Paid</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="expired">Expired</option>
                   </select>
                 </div>
               </div>
 
-              {/* Invoice Items */}
+              {/* Quotation Items */}
               <div>
-                <h3 className="text-lg font-medium mb-4">Invoice Items</h3>
+                <h3 className="text-lg font-medium mb-4">Quotation Items</h3>
                 <div className="border rounded-md overflow-auto max-h-[500px]">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Item
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Quantity
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Unit Price
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Tax
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Total
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {invoiceItems.map((item, index) => (
+                      {quotationItems.map((item, index) => (
                         <tr key={item.id}>
                           <td className="px-6 py-4 relative">
                             <div className="space-y-2">
@@ -769,7 +685,7 @@ export default function EditInvoicePage({
                               size="icon"
                               type="button"
                               onClick={() => handleRemoveItem(index)}
-                              disabled={invoiceItems.length === 1}
+                              disabled={quotationItems.length === 1}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -791,17 +707,29 @@ export default function EditInvoicePage({
                 </div>
               </div>
 
-              {/* Invoice Totals */}
+              {/* Quotation Totals and Notes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    name="notes"
-                    placeholder="Additional notes for the customer"
-                    defaultValue={invoice.notes || ""}
-                    rows={4}
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      placeholder="Additional notes for the customer"
+                      rows={4}
+                      defaultValue={quotation.notes || ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="terms_conditions">Terms & Conditions</Label>
+                    <Textarea
+                      id="terms_conditions"
+                      name="terms_conditions"
+                      placeholder="Terms and conditions for this quotation"
+                      rows={4}
+                      defaultValue={quotation.terms_conditions || ""}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-4 bg-gray-50 p-4 rounded-md">
@@ -840,22 +768,17 @@ export default function EditInvoicePage({
                       {formatCurrency(total)}
                     </span>
                   </div>
-
-                  {/* Hidden fields to submit calculated values */}
-                  <input type="hidden" name="subtotal" value={subtotal} />
-                  <input type="hidden" name="tax_amount" value={taxTotal} />
-                  <input type="hidden" name="total_amount" value={total} />
                 </div>
               </div>
 
               <div className="flex justify-end gap-3">
-                <Link href="/dashboard/invoices">
+                <Link href={`/dashboard/quotations/${quotationId}`}>
                   <Button variant="outline" type="button">
                     Cancel
                   </Button>
                 </Link>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Update Invoice"}
+                  {isSubmitting ? "Updating..." : "Update Quotation"}
                 </Button>
               </div>
             </form>

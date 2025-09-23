@@ -53,12 +53,15 @@ const sanitizePdfText = (text: string | null | undefined): string => {
   return text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/\t/g, '    ') // Replace tabs with 4 spaces
     .replace(/ﬀ/g, 'ff')
     .replace(/ﬁ/g, 'fi')
     .replace(/ﬂ/g, 'fl')
     .replace(/ﬃ/g, 'ffi')
     .replace(/ﬄ/g, 'ffl')
-    .replace(/[^\x00-\xFF]/g, '?');
+    .replace(/[^\x00-\xFF]/g, '?')
+    // Remove or replace other control characters that might cause issues
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control characters except \n (\x0A)
 };
 
 // Helper to format date
