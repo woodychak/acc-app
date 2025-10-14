@@ -62,6 +62,22 @@ export default function EditQuotationPage() {
     }>
   >([]);
 
+  // Add click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showProductSearch) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.product-search-container')) {
+          setShowProductSearch(false);
+          setSearchTerm("");
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showProductSearch]);
+
   useEffect(() => {
     const fetchQuotationData = async () => {
       const supabase = createClient();
@@ -508,192 +524,194 @@ export default function EditQuotationPage() {
               {/* Quotation Items */}
               <div>
                 <h3 className="text-lg font-medium mb-4">Quotation Items</h3>
-                <div className="border rounded-md overflow-auto max-h-[500px]">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Quantity
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Unit Price
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Tax
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {quotationItems.map((item, index) => (
-                        <tr key={item.id}>
-                          <td className="px-6 py-4 relative">
-                            <div className="space-y-2">
-                              <Input
-                                name={`items[${index}][product_name]`}
-                                placeholder="Product name"
-                                value={item.product_name || ""}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "product_name",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full text-sm font-medium"
-                              />
-                              <div className="flex items-center">
+                <div className="border rounded-md overflow-visible">
+                  <div className="overflow-auto max-h-[500px]">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Item
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Quantity
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Unit Price
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tax
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {quotationItems.map((item, index) => (
+                          <tr key={item.id}>
+                            <td className="px-6 py-4 relative product-search-container">
+                              <div className="space-y-2">
                                 <Input
-                                  name={`items[${index}][description]`}
-                                  placeholder="Item description"
-                                  value={item.description || ""}
+                                  name={`items[${index}][product_name]`}
+                                  placeholder="Product name"
+                                  value={item.product_name || ""}
                                   onChange={(e) =>
                                     handleItemChange(
                                       index,
-                                      "description",
+                                      "product_name",
                                       e.target.value,
                                     )
                                   }
-                                  className="w-full"
+                                  className="w-full text-sm font-medium"
                                 />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openProductSearch(index)}
-                                  className="ml-2"
-                                >
-                                  <Search className="h-4 w-4" />
-                                </Button>
-                                <input
-                                  type="hidden"
-                                  name={`items[${index}][product_id]`}
-                                  value={item.product_id || ""}
-                                />
-                              </div>
-                            </div>
-
-                            {showProductSearch && activeItemIndex === index && (
-                              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-96 overflow-auto">
-                                <div className="p-2 sticky top-0 bg-white border-b">
+                                <div className="flex items-center">
                                   <Input
-                                    placeholder="Search products..."
-                                    value={searchTerm}
+                                    name={`items[${index}][description]`}
+                                    placeholder="Item description"
+                                    value={item.description || ""}
                                     onChange={(e) =>
-                                      setSearchTerm(e.target.value)
+                                      handleItemChange(
+                                        index,
+                                        "description",
+                                        e.target.value,
+                                      )
                                     }
                                     className="w-full"
-                                    autoFocus
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => openProductSearch(index)}
+                                    className="ml-2"
+                                  >
+                                    <Search className="h-4 w-4" />
+                                  </Button>
+                                  <input
+                                    type="hidden"
+                                    name={`items[${index}][product_id]`}
+                                    value={item.product_id || ""}
                                   />
                                 </div>
-                                <ul className="max-h-80 overflow-y-auto">
-                                  {filteredProducts.map((product) => (
-                                    <li
-                                      key={product.id}
-                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                      onClick={() =>
-                                        handleProductSelect(product, index)
-                                      }
-                                    >
-                                      <div className="font-medium">
-                                        {product.name}
-                                      </div>
-                                      <div className="text-sm text-gray-500 flex justify-between">
-                                        <span>{product.sku}</span>
-                                        <span>
-                                          {formatCurrency(product.price)}
-                                        </span>
-                                      </div>
-                                    </li>
-                                  ))}
-                                  {filteredProducts.length === 0 && (
-                                    <li className="px-4 py-2 text-gray-500">
-                                      No products found
-                                    </li>
-                                  )}
-                                </ul>
                               </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Input
-                              name={`items[${index}][quantity]`}
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "quantity",
-                                  parseInt(e.target.value) || 1,
-                                )
-                              }
-                              className="w-20"
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Input
-                              name={`items[${index}][unit_price]`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unit_price}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "unit_price",
-                                  parseFloat(e.target.value) || 0,
-                                )
-                              }
-                              className="w-28"
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Input
-                              name={`items[${index}][tax_rate]`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.tax_rate}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "tax_rate",
-                                  parseFloat(e.target.value) || 0,
-                                )
-                              }
-                              className="w-20"
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium">
-                              {formatCurrency(item.quantity * item.unit_price)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              type="button"
-                              onClick={() => handleRemoveItem(index)}
-                              disabled={quotationItems.length === 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+
+                              {showProductSearch && activeItemIndex === index && (
+                                <div className="fixed z-[9999] mt-1 w-96 bg-white border rounded-md shadow-2xl max-h-96 overflow-auto">
+                                  <div className="p-2 sticky top-0 bg-white border-b z-10">
+                                    <Input
+                                      placeholder="Search products..."
+                                      value={searchTerm}
+                                      onChange={(e) =>
+                                        setSearchTerm(e.target.value)
+                                      }
+                                      className="w-full"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <ul className="max-h-80 overflow-y-auto">
+                                    {filteredProducts.map((product) => (
+                                      <li
+                                        key={product.id}
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                        onClick={() =>
+                                          handleProductSelect(product, index)
+                                        }
+                                      >
+                                        <div className="font-medium">
+                                          {product.name}
+                                        </div>
+                                        <div className="text-sm text-gray-500 flex justify-between">
+                                          <span>{product.sku}</span>
+                                          <span>
+                                            {formatCurrency(product.price)}
+                                          </span>
+                                        </div>
+                                      </li>
+                                    ))}
+                                    {filteredProducts.length === 0 && (
+                                      <li className="px-4 py-2 text-gray-500">
+                                        No products found
+                                      </li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Input
+                                name={`items[${index}][quantity]`}
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "quantity",
+                                    parseInt(e.target.value) || 1,
+                                  )
+                                }
+                                className="w-20"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Input
+                                name={`items[${index}][unit_price]`}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unit_price}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "unit_price",
+                                    parseFloat(e.target.value) || 0,
+                                  )
+                                }
+                                className="w-28"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Input
+                                name={`items[${index}][tax_rate]`}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.tax_rate}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "tax_rate",
+                                    parseFloat(e.target.value) || 0,
+                                  )
+                                }
+                                className="w-20"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium">
+                                {formatCurrency(item.quantity * item.unit_price)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                onClick={() => handleRemoveItem(index)}
+                                disabled={quotationItems.length === 1}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 <div className="mt-4 sticky bottom-0 bg-white p-2 border-t">
                   <Button
