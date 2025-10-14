@@ -91,6 +91,7 @@ export type Database = {
           is_active: boolean | null
           is_default: boolean | null
           name: string
+          start_balance: number | null
           symbol: string
           updated_at: string | null
           user_id: string
@@ -102,6 +103,7 @@ export type Database = {
           is_active?: boolean | null
           is_default?: boolean | null
           name: string
+          start_balance?: number | null
           symbol: string
           updated_at?: string | null
           user_id: string
@@ -113,6 +115,7 @@ export type Database = {
           is_active?: boolean | null
           is_default?: boolean | null
           name?: string
+          start_balance?: number | null
           symbol?: string
           updated_at?: string | null
           user_id?: string
@@ -172,102 +175,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
-      }
-      delivery_note_items: {
-        Row: {
-          delivery_note_id: string | null
-          description: string
-          id: string
-          product_id: string | null
-          quantity: number
-        }
-        Insert: {
-          delivery_note_id?: string | null
-          description: string
-          id?: string
-          product_id?: string | null
-          quantity: number
-        }
-        Update: {
-          delivery_note_id?: string | null
-          description?: string
-          id?: string
-          product_id?: string | null
-          quantity?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "delivery_note_items_delivery_note_id_fkey"
-            columns: ["delivery_note_id"]
-            isOneToOne: false
-            referencedRelation: "delivery_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "delivery_note_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      delivery_notes: {
-        Row: {
-          created_at: string | null
-          customer_id: string | null
-          delivery_date: string | null
-          dn_number: string
-          id: string
-          invoice_id: string | null
-          issue_date: string
-          notes: string | null
-          status: string
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          customer_id?: string | null
-          delivery_date?: string | null
-          dn_number: string
-          id?: string
-          invoice_id?: string | null
-          issue_date?: string
-          notes?: string | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          customer_id?: string | null
-          delivery_date?: string | null
-          dn_number?: string
-          id?: string
-          invoice_id?: string | null
-          issue_date?: string
-          notes?: string | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "delivery_notes_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "delivery_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       expenses: {
         Row: {

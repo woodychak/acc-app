@@ -1,0 +1,1 @@
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS start_balance DECIMAL(15, 2) DEFAULT 0.00;

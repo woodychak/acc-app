@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Star } from "lucide-react";
+import { Trash2, Plus, Star, Pencil } from "lucide-react";
 import {
   addCurrencyAction,
   removeCurrencyAction,
   setDefaultCurrencyAction,
+  updateCurrencyBalanceAction,
 } from "@/app/dashboard/currencies/actions";
 import {
   Select,
@@ -111,6 +112,7 @@ type Currency = {
   symbol: string;
   is_default: boolean;
   is_active: boolean;
+  start_balance?: number;
 };
 
 type CurrencyManagementProps = {
@@ -123,6 +125,9 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState("");
+  const [startBalance, setStartBalance] = useState("");
+  const [editingCurrencyId, setEditingCurrencyId] = useState<string | null>(null);
+  const [editBalance, setEditBalance] = useState("");
 
   const handleAddCurrency = async (formData: FormData) => {
     setIsSubmitting(true);
@@ -150,6 +155,7 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
     currencyFormData.append("code", selectedCurrencyData.code);
     currencyFormData.append("name", selectedCurrencyData.name);
     currencyFormData.append("symbol", selectedCurrencyData.symbol);
+    currencyFormData.append("start_balance", startBalance || "0");
 
     const result = await addCurrencyAction(currencyFormData);
     
@@ -159,6 +165,29 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
       setSuccess(result.message);
       setShowAddForm(false);
       setSelectedCurrency("");
+      setStartBalance("");
+    }
+
+    setIsSubmitting(false);
+  };
+
+  const handleEditBalance = async (currencyId: string) => {
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
+
+    const formData = new FormData();
+    formData.append("currency_id", currencyId);
+    formData.append("start_balance", editBalance);
+
+    const result = await updateCurrencyBalanceAction(formData);
+    
+    if (result?.type === "error") {
+      setError(result.message);
+    } else if (result?.type === "success") {
+      setSuccess(result.message);
+      setEditingCurrencyId(null);
+      setEditBalance("");
     }
 
     setIsSubmitting(false);
@@ -266,6 +295,21 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
                 </p>
               )}
             </div>
+            <div>
+              <Label htmlFor="start_balance">Start Balance</Label>
+              <Input
+                id="start_balance"
+                name="start_balance"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={startBalance}
+                onChange={(e) => setStartBalance(e.target.value)}
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Initial balance for this currency (optional)
+              </p>
+            </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={isSubmitting || !selectedCurrency} size="sm">
                 {isSubmitting ? "Adding..." : "Add Currency"}
@@ -277,6 +321,7 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
                 onClick={() => {
                   setShowAddForm(false);
                   setSelectedCurrency("");
+                  setStartBalance("");
                 }}
               >
                 Cancel
@@ -291,7 +336,7 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
               key={currency.id}
               className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold">{currency.code}</span>
                   <span className="text-sm text-gray-600">{currency.symbol}</span>
@@ -303,6 +348,53 @@ export function CurrencyManagement({ currencies }: CurrencyManagementProps) {
                   )}
                 </div>
                 <span className="text-sm text-gray-700">{currency.name}</span>
+                {editingCurrencyId === currency.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={editBalance}
+                      onChange={(e) => setEditBalance(e.target.value)}
+                      className="w-32"
+                    />
+                    <Button
+                      onClick={() => handleEditBalance(currency.id)}
+                      size="sm"
+                      disabled={isSubmitting}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingCurrencyId(null);
+                        setEditBalance("");
+                      }}
+                      size="sm"
+                      variant="outline"
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      Balance: {currency.symbol}{(currency.start_balance || 0).toFixed(2)}
+                    </span>
+                    <Button
+                      onClick={() => {
+                        setEditingCurrencyId(currency.id);
+                        setEditBalance((currency.start_balance || 0).toString());
+                      }}
+                      size="sm"
+                      variant="ghost"
+                      disabled={isSubmitting}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {!currency.is_default && (

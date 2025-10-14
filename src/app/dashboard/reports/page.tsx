@@ -12,13 +12,8 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "../../../../supabase/server";
-import {
-  getFinancialReports,
-  downloadRevenueReport,
-  downloadExpenseReport,
-  downloadCashFlowReport,
-} from "./actions";
-import { DownloadButton } from "./download-button";
+import { getFinancialReports } from "./actions";
+import { DownloadButtonWithDate } from "./download-button-with-date";
 
 export default async function ReportsPage() {
   const supabase = await createServerSupabaseClient();
@@ -38,7 +33,7 @@ export default async function ReportsPage() {
     currency: string = reportData.defaultCurrency,
   ) => {
     const symbol = reportData.currencySymbols[currency] || currency;
-    return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${symbol}${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatMultiCurrency = (currencyAmounts: Record<string, number>) => {
@@ -48,12 +43,36 @@ export default async function ReportsPage() {
       const [currency, amount] = entries[0];
       return formatCurrency(amount, currency);
     }
-    return entries
-      .map(([currency, amount]) => formatCurrency(amount, currency))
-      .join(" + ");
+
+    // Sort to show default currency first
+    const sortedEntries = entries.sort(([currencyA], [currencyB]) => {
+      if (currencyA === reportData.defaultCurrency) return -1;
+      if (currencyB === reportData.defaultCurrency) return 1;
+      return 0;
+    });
+
+    return (
+      <div className="space-y-1">
+        {sortedEntries.map(([currency, amount], index) => (
+          <div
+            key={currency}
+            className={index === 0 ? "text-2xl font-bold" : "text-lg"}
+          >
+            {formatCurrency(amount, currency)}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const hasData = reportData.totalRevenue > 0 || reportData.totalExpenses > 0;
+
+  // Filter out zero balances
+  const nonZeroStartingBalance = Object.fromEntries(
+    Object.entries(reportData.startingBalanceByCurrency).filter(
+      ([_, balance]) => balance !== 0,
+    ),
+  );
 
   return (
     <>
@@ -69,30 +88,63 @@ export default async function ReportsPage() {
             </div>
             {hasData && (
               <div className="flex gap-2">
-                <DownloadButton
-                  action={downloadRevenueReport}
+                <DownloadButtonWithDate
+                  action={async (from, to) => {
+                    "use server";
+                    const { downloadRevenueReport } = await import("./actions");
+                    return downloadRevenueReport(from, to);
+                  }}
                   variant="outline"
                 >
-                  <Download className="mr-2 h-4 w-4" /> Export Revenue Report
-                </DownloadButton>
-                <DownloadButton
-                  action={downloadExpenseReport}
+                  <Download className="mr-2 h-4 w-4" /> Revenue Report
+                </DownloadButtonWithDate>
+                <DownloadButtonWithDate
+                  action={async (from, to) => {
+                    "use server";
+                    const { downloadExpenseReport } = await import("./actions");
+                    return downloadExpenseReport(from, to);
+                  }}
                   variant="outline"
                 >
-                  <Download className="mr-2 h-4 w-4" /> Export Expense Report
-                </DownloadButton>
-                <DownloadButton
-                  action={downloadCashFlowReport}
+                  <Download className="mr-2 h-4 w-4" /> Expense Report
+                </DownloadButtonWithDate>
+                <DownloadButtonWithDate
+                  action={async (from, to) => {
+                    "use server";
+                    const { downloadCashFlowReport } = await import(
+                      "./actions"
+                    );
+                    return downloadCashFlowReport(from, to);
+                  }}
                   variant="outline"
                 >
-                  <Download className="mr-2 h-4 w-4" /> Export Cash Flow Report
-                </DownloadButton>
+                  <Download className="mr-2 h-4 w-4" /> Cash Flow Report
+                </DownloadButtonWithDate>
               </div>
             )}
           </div>
 
           {/* Financial Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {Object.keys(nonZeroStartingBalance).length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Starting Balance
+                  </CardTitle>
+                  <DollarSign className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatMultiCurrency(nonZeroStartingBalance)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Balance at period start
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -130,7 +182,7 @@ export default async function ReportsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Net Cash Flow
+                  Ending Balance
                 </CardTitle>
                 <TrendingUp
                   className={`h-4 w-4 ${reportData.netCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}
@@ -141,40 +193,26 @@ export default async function ReportsPage() {
                   className={`text-2xl font-bold ${reportData.netCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}
                 >
                   {(() => {
-                    const netByCurrency: Record<string, number> = {};
+                    const endingByCurrency: Record<string, number> = {};
                     Object.keys({
+                      ...reportData.startingBalanceByCurrency,
                       ...reportData.revenueByCurrency,
                       ...reportData.expensesByCurrency,
                     }).forEach((currency) => {
+                      const starting =
+                        reportData.startingBalanceByCurrency[currency] || 0;
                       const revenue =
                         reportData.revenueByCurrency[currency] || 0;
                       const expenses =
                         reportData.expensesByCurrency[currency] || 0;
-                      const net = revenue - expenses;
-                      if (net !== 0) netByCurrency[currency] = net;
+                      const ending = starting + revenue - expenses;
+                      if (ending !== 0) endingByCurrency[currency] = ending;
                     });
-                    return formatMultiCurrency(netByCurrency);
+                    return formatMultiCurrency(endingByCurrency);
                   })()}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Revenue - Expenses
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Outstanding
-                </CardTitle>
-                <DollarSign className="h-4 w-4 text-amber-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {formatMultiCurrency(reportData.outstandingByCurrency)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From {reportData.outstandingInvoices.length} unpaid invoices
+                  Start + Revenue - Expenses
                 </p>
               </CardContent>
             </Card>
@@ -182,6 +220,64 @@ export default async function ReportsPage() {
 
           {hasData ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {/* Cash Flow */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Cash Flow</CardTitle>
+                  <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">
+                        Monthly Comparison
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {Object.keys(reportData.revenueByMonth)
+                        .slice(0, 3)
+                        .map((month) => {
+                          const revenue = reportData.revenueByMonth[month] || 0;
+                          const expenses =
+                            reportData.expensesByMonth[month] || 0;
+                          const netFlow = revenue - expenses;
+                          return (
+                            <div key={month} className="space-y-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm">{month}</span>
+                                <span
+                                  className={`text-sm font-medium ${
+                                    netFlow >= 0
+                                      ? "text-green-600"
+                                      : "text-red-600"
+                                  }`}
+                                >
+                                  {formatCurrency(
+                                    netFlow,
+                                    reportData.defaultCurrency,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Revenue:{" "}
+                                {formatCurrency(
+                                  revenue,
+                                  reportData.defaultCurrency,
+                                )}{" "}
+                                | Expenses:{" "}
+                                {formatCurrency(
+                                  expenses,
+                                  reportData.defaultCurrency,
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Revenue Analysis */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -254,64 +350,6 @@ export default async function ReportsPage() {
                             </span>
                           </div>
                         ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Cash Flow */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Cash Flow</CardTitle>
-                  <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">
-                        Monthly Comparison
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {Object.keys(reportData.revenueByMonth)
-                        .slice(0, 3)
-                        .map((month) => {
-                          const revenue = reportData.revenueByMonth[month] || 0;
-                          const expenses =
-                            reportData.expensesByMonth[month] || 0;
-                          const netFlow = revenue - expenses;
-                          return (
-                            <div key={month} className="space-y-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm">{month}</span>
-                                <span
-                                  className={`text-sm font-medium ${
-                                    netFlow >= 0
-                                      ? "text-green-600"
-                                      : "text-red-600"
-                                  }`}
-                                >
-                                  {formatCurrency(
-                                    netFlow,
-                                    reportData.defaultCurrency,
-                                  )}
-                                </span>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Revenue:{" "}
-                                {formatCurrency(
-                                  revenue,
-                                  reportData.defaultCurrency,
-                                )}{" "}
-                                | Expenses:{" "}
-                                {formatCurrency(
-                                  expenses,
-                                  reportData.defaultCurrency,
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
                     </div>
                   </div>
                 </CardContent>

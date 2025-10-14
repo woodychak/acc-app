@@ -18,6 +18,7 @@ export async function addCurrencyAction(formData: FormData) {
   const code = formData.get("code") as string;
   const name = formData.get("name") as string;
   const symbol = formData.get("symbol") as string;
+  const startBalance = formData.get("start_balance") as string;
 
   if (!code || !name || !symbol) {
     return { type: "error", message: "All fields are required" };
@@ -31,6 +32,7 @@ export async function addCurrencyAction(formData: FormData) {
         code: code.toUpperCase().trim(),
         name: name.trim(),
         symbol: symbol.trim(),
+        start_balance: startBalance ? parseFloat(startBalance) : 0,
         is_default: false,
         is_active: true,
       });
@@ -45,6 +47,46 @@ export async function addCurrencyAction(formData: FormData) {
 
     revalidatePath("/dashboard/currencies");
     return { type: "success", message: "Currency added successfully" };
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return { type: "error", message: "An unexpected error occurred" };
+  }
+}
+
+export async function updateCurrencyBalanceAction(formData: FormData) {
+  const supabase = await createServerSupabaseClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return redirect("/sign-in");
+  }
+
+  const currencyId = formData.get("currency_id") as string;
+  const startBalance = formData.get("start_balance") as string;
+
+  if (!currencyId) {
+    return { type: "error", message: "Currency ID is required" };
+  }
+
+  try {
+    const { error } = await supabase
+      .from("currencies")
+      .update({
+        start_balance: startBalance ? parseFloat(startBalance) : 0,
+      })
+      .eq("id", currencyId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Currency update error:", error);
+      return { type: "error", message: `Failed to update balance: ${error.message}` };
+    }
+
+    revalidatePath("/dashboard/currencies");
+    return { type: "success", message: "Balance updated successfully" };
   } catch (err) {
     console.error("Unexpected error:", err);
     return { type: "error", message: "An unexpected error occurred" };
