@@ -575,15 +575,64 @@ export default function NewExpensePage() {
     setCropArea(newArea);
   };
 
-  useEffect(() => {
-    if (!selectedArea) return;
+  const startAreaSelection = () => {
+    setIsSelecting(true);
+    setSelectedArea(null);
+    setSelectionStart(null);
+  };
 
-    (async () => {
-      if (!receiptFiles[currentReceiptIndex]) return;
+  const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!isSelecting) return;
 
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setIsDrawing(true);
+    setSelectionStart({ x, y });
+    setSelectedArea(null);
+  };
+
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!isDrawing || !selectionStart || !isSelecting) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+
+    const width = Math.abs(currentX - selectionStart.x);
+    const height = Math.abs(currentY - selectionStart.y);
+    const x = Math.min(currentX, selectionStart.x);
+    const y = Math.min(currentY, selectionStart.y);
+
+    setSelectedArea({
+      x,
+      y,
+      width,
+      height,
+      displayWidth: rect.width,
+      displayHeight: rect.height,
+      naturalWidth: imgNatural.w,
+      naturalHeight: imgNatural.h,
+    });
+  };
+
+  const handleImageMouseUp = async () => {
+    if (!isDrawing) return;
+
+    setIsDrawing(false);
+    setIsSelecting(false);
+
+    // 👇 Prevent accidental file-selector click
+    skipNextClickRef.current = true;
+
+    // Process the selected area immediately with the current receipt
+    if (selectedArea && receiptFiles[currentReceiptIndex]) {
+      const currentFile = receiptFiles[currentReceiptIndex];
+      
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.src = receiptFiles[currentReceiptIndex].preview;
+      img.src = currentFile.preview;
 
       img.onload = async () => {
         const canvas = document.createElement("canvas");
@@ -620,12 +669,10 @@ export default function NewExpensePage() {
           try {
             const extractedData = await extractReceiptData(croppedFile);
             setAiExtractedData(extractedData);
+            // Only update amount from the selected area
             setFormData((prev) => ({
               ...prev,
               amount: extractedData.amount || prev.amount,
-              vendor: extractedData.vendor || prev.vendor,
-              expense_date: extractedData.date || prev.expense_date,
-              category: extractedData.category || prev.category,
             }));
           } catch (error) {
             console.error("OCR processing failed:", error);
@@ -635,82 +682,7 @@ export default function NewExpensePage() {
           }
         }, "image/png");
       };
-    })();
-  }, [selectedArea, receiptFiles, currentReceiptIndex]);
-
-  const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!isSelecting) return;
-    e.preventDefault();
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    setSelectionStart({ x, y });
-    setIsDrawing(true);
-    setSelectedArea(null);
-  };
-
-  const handleImageMouseMove = (
-    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
-  ) => {
-    if (!isSelecting || !isDrawing || !selectionStart) return;
-    e.preventDefault();
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    setSelectedArea({
-      x: Math.min(selectionStart.x, x),
-      y: Math.min(selectionStart.y, y),
-      width: Math.abs(x - selectionStart.x),
-      height: Math.abs(y - selectionStart.y),
-      displayWidth: rect.width,
-      displayHeight: rect.height,
-      naturalWidth: imgNatural.w,
-      naturalHeight: imgNatural.h,
-    });
-  };
-
-  const handleImageMouseUp = (
-    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
-  ) => {
-    if (!isSelecting || !isDrawing || !selectionStart) return;
-    e.preventDefault();
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const width = Math.abs(x - selectionStart.x);
-    const height = Math.abs(y - selectionStart.y);
-
-    if (width > 10 && height > 10) {
-      setSelectedArea({
-        x: Math.min(selectionStart.x, x),
-        y: Math.min(selectionStart.y, y),
-        width,
-        height,
-        displayWidth: rect.width,
-        displayHeight: rect.height,
-        naturalWidth: imgNatural.w,
-        naturalHeight: imgNatural.h,
-      });
-    } else {
-      setSelectedArea(null);
     }
-
-    setIsDrawing(false);
-    setIsSelecting(false);
-    setSelectionStart(null);
-    skipNextClickRef.current = true;
-  };
-
-  const startAreaSelection = () => {
-    setIsSelecting(true);
-    setSelectedArea(null);
-    setError("");
   };
 
   const handleFileSelect = async (

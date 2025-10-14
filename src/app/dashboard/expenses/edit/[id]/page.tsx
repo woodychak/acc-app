@@ -164,34 +164,41 @@ export default function EditExpensePage() {
     })();
   }, [selectedArea, receiptFiles]);
 
+  const startAreaSelection = () => {
+    setIsSelecting(true);
+    setSelectedArea(null);
+    setSelectionStart(null);
+  };
+
   const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (!isSelecting) return;
-    e.preventDefault();
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setSelectionStart({ x, y });
     setIsDrawing(true);
+    setSelectionStart({ x, y });
     setSelectedArea(null);
   };
 
-  const handleImageMouseMove = (
-    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
-  ) => {
-    if (!isSelecting || !isDrawing || !selectionStart) return;
-    e.preventDefault();
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!isDrawing || !selectionStart || !isSelecting) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+
+    const width = Math.abs(currentX - selectionStart.x);
+    const height = Math.abs(currentY - selectionStart.y);
+    const x = Math.min(currentX, selectionStart.x);
+    const y = Math.min(currentY, selectionStart.y);
 
     setSelectedArea({
-      x: Math.min(selectionStart.x, x),
-      y: Math.min(selectionStart.y, y),
-      width: Math.abs(x - selectionStart.x),
-      height: Math.abs(y - selectionStart.y),
+      x,
+      y,
+      width,
+      height,
       displayWidth: rect.width,
       displayHeight: rect.height,
       naturalWidth: imgNatural.w,
@@ -199,44 +206,69 @@ export default function EditExpensePage() {
     });
   };
 
-  const handleImageMouseUp = (
-    e: React.MouseEvent<HTMLImageElement, MouseEvent>,
-  ) => {
-    if (!isSelecting || !isDrawing || !selectionStart) return;
-    e.preventDefault();
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const width = Math.abs(x - selectionStart.x);
-    const height = Math.abs(y - selectionStart.y);
-
-    if (width > 10 && height > 10) {
-      setSelectedArea({
-        x: Math.min(selectionStart.x, x),
-        y: Math.min(selectionStart.y, y),
-        width,
-        height,
-        displayWidth: rect.width,
-        displayHeight: rect.height,
-        naturalWidth: imgNatural.w,
-        naturalHeight: imgNatural.h,
-      });
-    } else {
-      setSelectedArea(null);
-    }
+  const handleImageMouseUp = async () => {
+    if (!isDrawing) return;
 
     setIsDrawing(false);
     setIsSelecting(false);
-    setSelectionStart(null);
-    skipNextClickRef.current = true;
-  };
 
-  const startAreaSelection = () => {
-    setIsSelecting(true);
-    setSelectedArea(null);
-    setError("");
+    skipNextClickRef.current = true;
+
+    // Process the selected area immediately with the current receipt
+    if (selectedArea && receiptPreview && receiptPreview !== "pdf") {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = receiptPreview;
+
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d")!;
+
+        const scaleX = img.naturalWidth / selectedArea.displayWidth;
+        const scaleY = img.naturalHeight / selectedArea.displayHeight;
+
+        canvas.width = selectedArea.width * scaleX;
+        canvas.height = selectedArea.height * scaleY;
+
+        ctx.drawImage(
+          img,
+          selectedArea.x * scaleX,
+          selectedArea.y * scaleY,
+          selectedArea.width * scaleX,
+          selectedArea.height * scaleY,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+        );
+
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+
+          const croppedFile = new File(
+            [blob],
+            `cropped_${Date.now()}.png`,
+            { type: "image/png" },
+          );
+
+          setAiProcessing(true);
+          try {
+            const extractedData = await extractReceiptData(croppedFile);
+            setAiExtractedData(extractedData);
+            // Only update amount from the selected area
+            setFormData((prev) => ({
+              ...prev,
+              amount: extractedData.amount || prev.amount,
+            }));
+          } catch (error) {
+            console.error("OCR processing failed:", error);
+            setError("Failed to process selected area. Please try again.");
+          } finally {
+            setAiProcessing(false);
+          }
+        }, "image/png");
+      };
+    }
   };
 
   const handleFileSelect = async (
