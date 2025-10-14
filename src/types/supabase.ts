@@ -190,7 +190,10 @@ export type Database = {
           notes: string | null
           payment_method: string | null
           receipt_filename: string | null
+          receipt_filenames: string[] | null
           receipt_url: string | null
+          receipt_urls: string[] | null
+          receipts: Json | null
           title: string
           updated_at: string | null
           user_id: string | null
@@ -209,7 +212,10 @@ export type Database = {
           notes?: string | null
           payment_method?: string | null
           receipt_filename?: string | null
+          receipt_filenames?: string[] | null
           receipt_url?: string | null
+          receipt_urls?: string[] | null
+          receipts?: Json | null
           title: string
           updated_at?: string | null
           user_id?: string | null
@@ -228,7 +234,10 @@ export type Database = {
           notes?: string | null
           payment_method?: string | null
           receipt_filename?: string | null
+          receipt_filenames?: string[] | null
           receipt_url?: string | null
+          receipt_urls?: string[] | null
+          receipts?: Json | null
           title?: string
           updated_at?: string | null
           user_id?: string | null

@@ -20,6 +20,7 @@ import {
   CheckCircle,
   AlertCircle,
   MousePointer,
+  X,
 } from "lucide-react";
 import { useState, useRef, ChangeEvent } from "react";
 import { createClient } from "../../../../../supabase/client";
@@ -66,6 +67,12 @@ type Area = {
   imageHeight: number;
 };
 
+type ReceiptFileData = {
+  file: File;
+  preview: string;
+  id: string;
+};
+
 export default function NewExpensePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -73,7 +80,7 @@ export default function NewExpensePage() {
   const [loading, setLoading] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptFiles, setReceiptFiles] = useState<ReceiptFileData[]>([]);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [aiExtractedData, setAiExtractedData] =
     useState<ExtractedReceiptData | null>(null);
@@ -140,6 +147,9 @@ export default function NewExpensePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const cropImageRef = useRef<HTMLImageElement>(null);
+  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
+  const [currentReceiptIndex, setCurrentReceiptIndex] = useState(0);
+
   // Handle upload
   const handleUploadClick = () => {
     setTimeout(() => {
@@ -159,8 +169,6 @@ export default function NewExpensePage() {
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-  // 1️⃣  at the top of your component body (after state hooks)
-  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
 
   // Fetch currencies on component mount
   useEffect(() => {
@@ -334,11 +342,21 @@ export default function NewExpensePage() {
       // Compress the image
       file = await compressImage(file);
 
-      // Update preview & close crop modal
-      setReceiptPreview(URL.createObjectURL(file));
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+
+      // Add to receipt files
+      const newReceiptFile: ReceiptFileData = {
+        file,
+        preview: previewUrl,
+        id: `${Date.now()}`,
+      };
+
+      setReceiptFiles([newReceiptFile]);
+      setReceiptPreview(previewUrl);
+      setCurrentReceiptIndex(0);
       setShowCropModal(false);
       setCapturedImage(null);
-      setReceiptFile(file);
 
       // Run OCR on cropped and compressed image
       setAiProcessing(true);
@@ -558,36 +576,67 @@ export default function NewExpensePage() {
   };
 
   useEffect(() => {
-    if (!selectedArea || !receiptFile) return;
+    if (!selectedArea) return;
 
     (async () => {
-      setAiProcessing(true);
-      try {
-        // Convert selectedArea to include legacy fields
-        const areaWithLegacyFields = {
-          ...selectedArea,
-          imageWidth: selectedArea.displayWidth,
-          imageHeight: selectedArea.displayHeight,
-        };
+      if (!receiptFiles[currentReceiptIndex]) return;
 
-        const { amount } = await extractReceiptData(
-          receiptFile,
-          areaWithLegacyFields,
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = receiptFiles[currentReceiptIndex].preview;
+
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d")!;
+
+        const scaleX = img.naturalWidth / selectedArea.displayWidth;
+        const scaleY = img.naturalHeight / selectedArea.displayHeight;
+
+        canvas.width = selectedArea.width * scaleX;
+        canvas.height = selectedArea.height * scaleY;
+
+        ctx.drawImage(
+          img,
+          selectedArea.x * scaleX,
+          selectedArea.y * scaleY,
+          selectedArea.width * scaleX,
+          selectedArea.height * scaleY,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
         );
-        if (amount) {
-          setFormData((p) => ({ ...p, amount }));
-          setAiExtractedData((p) => ({ ...p, amount }));
-        } else {
-          setError("Couldn’t find a number in the selected area.");
-        }
-      } catch (err) {
-        console.error("Area OCR failed", err);
-        setError("Failed to read the selected area.");
-      } finally {
-        setAiProcessing(false);
-      }
+
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+
+          const croppedFile = new File(
+            [blob],
+            `cropped_${Date.now()}.png`,
+            { type: "image/png" },
+          );
+
+          setAiProcessing(true);
+          try {
+            const extractedData = await extractReceiptData(croppedFile);
+            setAiExtractedData(extractedData);
+            setFormData((prev) => ({
+              ...prev,
+              amount: extractedData.amount || prev.amount,
+              vendor: extractedData.vendor || prev.vendor,
+              expense_date: extractedData.date || prev.expense_date,
+              category: extractedData.category || prev.category,
+            }));
+          } catch (error) {
+            console.error("OCR processing failed:", error);
+            setError("Failed to process selected area. Please try again.");
+          } finally {
+            setAiProcessing(false);
+          }
+        }, "image/png");
+      };
     })();
-  }, [selectedArea, receiptFile]);
+  }, [selectedArea, receiptFiles, currentReceiptIndex]);
 
   const handleImageMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (!isSelecting) return;
@@ -667,65 +716,109 @@ export default function NewExpensePage() {
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    /* Validate type & size */
-    const isPdf = file.type === "application/pdf";
-    const isImage = file.type.startsWith("image/");
-    if (!isPdf && !isImage) {
-      setError("Please select an image or PDF file");
-      return;
+    const newReceiptFiles: ReceiptFileData[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      /* Validate type & size */
+      const isPdf = file.type === "application/pdf";
+      const isImage = file.type.startsWith("image/");
+      if (!isPdf && !isImage) {
+        setError("Please select only image or PDF files");
+        continue;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        setError(`File ${file.name} is too large (max 20 MB)`);
+        continue;
+      }
+
+      /* Generate preview + OCR source */
+      let ocrFile: File;
+      let previewUrl: string;
+
+      if (isPdf) {
+        const { pdfPageToPng } = await import("@/lib/pdf-to-image");
+        const pngBlob = await pdfPageToPng(file);
+        ocrFile = new File([pngBlob], file.name + ".png", { type: "image/png" });
+        previewUrl = URL.createObjectURL(pngBlob);
+      } else {
+        // Compress image files
+        ocrFile = await compressImage(file);
+        previewUrl = URL.createObjectURL(ocrFile);
+      }
+
+      newReceiptFiles.push({
+        file: ocrFile,
+        preview: previewUrl,
+        id: `${Date.now()}-${i}`,
+      });
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setError("File size must be less than 20 MB");
-      return;
+
+    setReceiptFiles((prev) => [...prev, ...newReceiptFiles]);
+
+    // Process first file with OCR if this is the first upload
+    if (receiptFiles.length === 0 && newReceiptFiles.length > 0) {
+      setReceiptPreview(newReceiptFiles[0].preview);
+      setCurrentReceiptIndex(0);
+      
+      setAiProcessing(true);
+      try {
+        const extractedData = await extractReceiptData(newReceiptFiles[0].file);
+        setAiExtractedData(extractedData);
+        setFormData((prev) => ({
+          ...prev,
+          amount: extractedData.amount || prev.amount,
+          vendor: extractedData.vendor || prev.vendor,
+          expense_date: extractedData.date || prev.expense_date,
+          category: extractedData.category || prev.category,
+          title: extractedData.vendor
+            ? `Expense from ${extractedData.vendor}`
+            : prev.title,
+        }));
+      } catch (error) {
+        console.error("OCR processing failed:", error);
+        setError("Failed to process receipt. Please enter details manually.");
+      } finally {
+        setAiProcessing(false);
+      }
     }
-
-    /* Generate preview + OCR source */
-    let ocrFile: File;
-    let previewUrl: string;
-
-    if (isPdf) {
-      const { pdfPageToPng } = await import("@/lib/pdf-to-image");
-      const pngBlob = await pdfPageToPng(file);
-      ocrFile = new File([pngBlob], file.name + ".png", { type: "image/png" });
-      previewUrl = URL.createObjectURL(pngBlob);
-    } else {
-      // Compress image files
-      ocrFile = await compressImage(file);
-      previewUrl = URL.createObjectURL(ocrFile);
-    }
-
-    setReceiptFile(ocrFile);
-    setReceiptPreview(previewUrl);
 
     // Reset selection states
     setSelectedArea(null);
     setIsSelecting(false);
     setIsDrawing(false);
     setSelectionStart(null);
+  };
 
-    // Process with OCR (full)
-    setAiProcessing(true);
-    try {
-      const extractedData = await extractReceiptData(ocrFile);
-      setAiExtractedData(extractedData);
-      setFormData((prev) => ({
-        ...prev,
-        amount: extractedData.amount || prev.amount,
-        vendor: extractedData.vendor || prev.vendor,
-        expense_date: extractedData.date || prev.expense_date,
-        category: extractedData.category || prev.category,
-        title: extractedData.vendor
-          ? `Expense from ${extractedData.vendor}`
-          : prev.title,
-      }));
-    } catch (error) {
-      console.error("OCR processing failed:", error);
-      setError("Failed to process receipt. Please enter details manually.");
-    } finally {
-      setAiProcessing(false);
+  const removeReceiptFile = (id: string) => {
+    setReceiptFiles((prev) => {
+      const filtered = prev.filter((f) => f.id !== id);
+      
+      // Update preview if we removed the current one
+      if (receiptPreview === prev.find((f) => f.id === id)?.preview) {
+        if (filtered.length > 0) {
+          setReceiptPreview(filtered[0].preview);
+          setCurrentReceiptIndex(0);
+        } else {
+          setReceiptPreview(null);
+          setCurrentReceiptIndex(0);
+        }
+      }
+      
+      return filtered;
+    });
+  };
+
+  const selectReceiptFile = (index: number) => {
+    if (receiptFiles[index]) {
+      setReceiptPreview(receiptFiles[index].preview);
+      setCurrentReceiptIndex(index);
+      setSelectedArea(null);
+      setIsSelecting(false);
     }
   };
 
@@ -768,25 +861,29 @@ export default function NewExpensePage() {
         throw new Error("User not authenticated");
       }
 
-      let receiptUrl = null;
-      let receiptFilename = null;
+      const receiptUrls: string[] = [];
+      const receiptFilenames: string[] = [];
 
-      // Upload receipt if provided
-      if (receiptFile) {
+      // Upload all receipt files
+      if (receiptFiles.length > 0) {
         setUploadingReceipt(true);
-        const uploadResult = await uploadReceiptToStorage(receiptFile);
-        receiptUrl = uploadResult.publicUrl;
-        receiptFilename = uploadResult.fileName;
+        for (const receiptFileData of receiptFiles) {
+          const uploadResult = await uploadReceiptToStorage(receiptFileData.file);
+          receiptUrls.push(uploadResult.publicUrl);
+          receiptFilenames.push(uploadResult.fileName);
+        }
         setUploadingReceipt(false);
       }
 
-      // Create expense record
+      // Create expense record with all receipt data
       const expenseData = {
         ...formData,
         user_id: user.id,
         amount: parseFloat(formData.amount),
-        receipt_url: receiptUrl,
-        receipt_filename: receiptFilename,
+        receipt_url: receiptUrls.length > 0 ? receiptUrls[0] : null,
+        receipt_filename: receiptFilenames.length > 0 ? receiptFilenames[0] : null,
+        receipt_urls: receiptUrls.length > 0 ? receiptUrls : null,
+        receipt_filenames: receiptFilenames.length > 0 ? receiptFilenames : null,
         ai_extracted_data: aiExtractedData,
       };
 
@@ -799,7 +896,7 @@ export default function NewExpensePage() {
       router.push("/dashboard/expenses");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to update expense";
+        err instanceof Error ? err.message : "Failed to create expense";
       setError(message);
     } finally {
       setLoading(false);
@@ -815,7 +912,7 @@ export default function NewExpensePage() {
           <div className="mb-6">
             <h1 className="text-3xl font-bold">Add New Expense</h1>
             <p className="text-muted-foreground">
-              Upload a receipt or manually enter expense details
+              Upload receipts or manually enter expense details
             </p>
           </div>
 
@@ -825,11 +922,44 @@ export default function NewExpensePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Camera className="h-5 w-5" />
-                  Receipt Upload
+                  Receipt Upload ({receiptFiles.length} file{receiptFiles.length !== 1 ? 's' : ''})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {/* File thumbnails */}
+                  {receiptFiles.length > 0 && (
+                    <div className="flex gap-2 flex-wrap mb-4">
+                      {receiptFiles.map((receiptFile, index) => (
+                        <div
+                          key={receiptFile.id}
+                          className={`relative w-20 h-20 border-2 rounded cursor-pointer ${
+                            index === currentReceiptIndex
+                              ? "border-blue-500"
+                              : "border-gray-300"
+                          }`}
+                          onClick={() => selectReceiptFile(index)}
+                        >
+                          <img
+                            src={receiptFile.preview}
+                            alt={`Receipt ${index + 1}`}
+                            className="w-full h-full object-cover rounded"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeReceiptFile(receiptFile.id);
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div
                     className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors ${
                       !receiptPreview
@@ -915,9 +1045,9 @@ export default function NewExpensePage() {
                       <div className="space-y-4">
                         <Upload className="h-12 w-12 text-gray-400 mx-auto" />
                         <div>
-                          <p className="text-lg font-medium">Upload Receipt</p>
+                          <p className="text-lg font-medium">Upload Receipts</p>
                           <p className="text-sm text-gray-600">
-                            Click to select an image or PDF file (max 10MB)
+                            Click to select multiple images or PDF files (max 20MB each)
                           </p>
                         </div>
                       </div>
@@ -1077,13 +1207,14 @@ export default function NewExpensePage() {
                     </div>
                   )}
 
-                  {/* Hidden file input for upload */}
+                  {/* Hidden file input for upload - NOW WITH MULTIPLE */}
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*,application/pdf"
                     onChange={handleFileSelect}
                     className="hidden"
+                    multiple
                   />
 
                   {/* Hidden file input for camera */}

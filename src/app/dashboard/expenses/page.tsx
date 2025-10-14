@@ -40,6 +40,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import * as XLSX from "xlsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Expense {
   id: string;
@@ -62,6 +69,9 @@ export default function ExpensesPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewReceiptDialogOpen, setViewReceiptDialogOpen] = useState(false);
+  const [currentReceiptUrls, setCurrentReceiptUrls] = useState<string[]>([]);
+  const [currentReceiptIndex, setCurrentReceiptIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -182,7 +192,7 @@ export default function ExpensesPage() {
     id: string;
     title: string;
     amount: number;
-    currency_code: string; // Add this line
+    currency_code: string;
     category?: string;
     expense_date: string;
     vendor?: string;
@@ -190,7 +200,45 @@ export default function ExpensesPage() {
     description?: string;
     notes?: string;
     receipt_url?: string;
+    receipt_urls?: string[];
     // ...other fields
+  };
+
+  const handleViewReceipts = (expense: Expense) => {
+    const urls: string[] = [];
+    
+    if (expense.receipt_urls && Array.isArray(expense.receipt_urls)) {
+      urls.push(...expense.receipt_urls);
+    } else if (expense.receipt_url) {
+      urls.push(expense.receipt_url);
+    }
+    
+    if (urls.length > 0) {
+      setCurrentReceiptUrls(urls);
+      setCurrentReceiptIndex(0);
+      setViewReceiptDialogOpen(true);
+    }
+  };
+
+  const nextReceipt = () => {
+    if (currentReceiptIndex < currentReceiptUrls.length - 1) {
+      setCurrentReceiptIndex(currentReceiptIndex + 1);
+    }
+  };
+
+  const prevReceipt = () => {
+    if (currentReceiptIndex > 0) {
+      setCurrentReceiptIndex(currentReceiptIndex - 1);
+    }
+  };
+
+  const getReceiptCount = (expense: Expense) => {
+    if (expense.receipt_urls && Array.isArray(expense.receipt_urls)) {
+      return expense.receipt_urls.length;
+    } else if (expense.receipt_url) {
+      return 1;
+    }
+    return 0;
   };
 
   const exportToExcel = () => {
@@ -364,55 +412,56 @@ export default function ExpensesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedExpenses.map((expense) => (
-                    <tr key={expense.id} className="border-b">
-                      <td className="p-2 font-medium">{expense.title}</td>
-                      <td className="p-2">
-                        {formatCurrency(expense.amount, expense.currency_code)}
-                      </td>
-                      <td className="p-2">
-                        <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                          {expense.category || "Uncategorized"}
-                        </span>
-                      </td>
-                      <td className="p-2">
-                        {formatDate(expense.expense_date)}
-                      </td>
-                      <td className="p-2">{expense.vendor || "-"}</td>
-                      <td className="p-2">
-                        {expense.receipt_url ? (
-                          <button
-                            onClick={() =>
-                              window.open(expense.receipt_url, "_blank")
-                            }
-                            className="text-blue-600 hover:underline flex items-center cursor-pointer bg-transparent border-none p-0"
+                  {paginatedExpenses.map((expense) => {
+                    const receiptCount = getReceiptCount(expense);
+                    return (
+                      <tr key={expense.id} className="border-b">
+                        <td className="p-2 font-medium">{expense.title}</td>
+                        <td className="p-2">
+                          {formatCurrency(expense.amount, expense.currency_code)}
+                        </td>
+                        <td className="p-2">
+                          <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                            {expense.category || "Uncategorized"}
+                          </span>
+                        </td>
+                        <td className="p-2">
+                          {formatDate(expense.expense_date)}
+                        </td>
+                        <td className="p-2">{expense.vendor || "-"}</td>
+                        <td className="p-2">
+                          {receiptCount > 0 ? (
+                            <button
+                              onClick={() => handleViewReceipts(expense)}
+                              className="text-blue-600 hover:underline flex items-center cursor-pointer bg-transparent border-none p-0"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View {receiptCount > 1 ? `(${receiptCount})` : ''}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400">No receipt</span>
+                          )}
+                        </td>
+                        <td className="p-2 flex gap-2">
+                          <Link href={`/dashboard/expenses/edit/${expense.id}`}>
+                            <Button size="sm" variant="outline">
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteClick(expense)}
                           >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </button>
-                        ) : (
-                          <span className="text-gray-400">No receipt</span>
-                        )}
-                      </td>
-                      <td className="p-2 flex gap-2">
-                        <Link href={`/dashboard/expenses/edit/${expense.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Pencil className="h-4 w-4 mr-1" />
-                            Edit
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
                           </Button>
-                        </Link>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteClick(expense)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -437,6 +486,60 @@ export default function ExpensesPage() {
           )}
         </div>
       </main>
+
+      {/* Receipt Viewer Dialog */}
+      <Dialog open={viewReceiptDialogOpen} onOpenChange={setViewReceiptDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>
+              Receipt {currentReceiptIndex + 1} of {currentReceiptUrls.length}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <img
+              src={currentReceiptUrls[currentReceiptIndex]}
+              alt={`Receipt ${currentReceiptIndex + 1}`}
+              className="w-full h-auto max-h-[70vh] object-contain"
+            />
+            
+            {currentReceiptUrls.length > 1 && (
+              <div className="flex justify-between items-center mt-4">
+                <Button
+                  variant="outline"
+                  onClick={prevReceipt}
+                  disabled={currentReceiptIndex === 0}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                <div className="flex gap-2">
+                  {currentReceiptUrls.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentReceiptIndex(index)}
+                      className={`w-2 h-2 rounded-full ${
+                        index === currentReceiptIndex
+                          ? "bg-blue-600"
+                          : "bg-gray-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  onClick={nextReceipt}
+                  disabled={currentReceiptIndex === currentReceiptUrls.length - 1}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
