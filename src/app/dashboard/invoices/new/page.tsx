@@ -647,7 +647,7 @@ export default function NewInvoicePage() {
                               </div>
 
                               {showProductSearch && activeItemIndex === index && (
-                                <div className="fixed z-[9999] mt-1 w-96 bg-white border rounded-md shadow-2xl max-h-96 overflow-auto">
+                                <div className="absolute z-[9999] mt-1 w-96 bg-white border rounded-md shadow-2xl max-h-96 overflow-auto">
                                   <div className="p-2 sticky top-0 bg-white border-b z-10">
                                     <Input
                                       placeholder="Search products..."

@@ -145,12 +145,6 @@ export default async function InvoiceDetailPage({
                 </Button>
               </form>
 
-              <form action={`/api/invoices/${params.id}/delivery-note`} method="GET">
-                <Button type="submit" variant="outline">
-                  <FileText className="h-4 w-4 mr-2" /> DN
-                </Button>
-              </form>
-
               <PrintButton />
 
               <form action={`/dashboard/invoices/send-email`} method="POST">
