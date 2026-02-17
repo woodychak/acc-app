@@ -22,6 +22,8 @@ import {
   FileCheck,
   Building2,
   Coins,
+  Truck,
+  ClipboardList,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -52,6 +54,11 @@ export default function DashboardNavbar() {
       name: "Quotations",
       href: "/dashboard/quotations",
       icon: <FileCheck className="h-4 w-4" />,
+    },
+    {
+      name: "PO",
+      href: "/dashboard/purchase-orders",
+      icon: <ClipboardList className="h-4 w-4" />,
     },
     {
       name: "Invoices",
@@ -130,6 +137,12 @@ export default function DashboardNavbar() {
                 <Link href="/dashboard/company-profile" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   Company Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/vendors" className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  Vendors
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

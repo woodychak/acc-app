@@ -416,6 +416,7 @@ export type Database = {
       }
       products: {
         Row: {
+          cost_price: number | null
           created_at: string | null
           currency_code: string
           description: string | null
@@ -427,8 +428,10 @@ export type Database = {
           tax_rate: number | null
           updated_at: string | null
           user_id: string | null
+          vendor_id: string | null
         }
         Insert: {
+          cost_price?: number | null
           created_at?: string | null
           currency_code?: string
           description?: string | null
@@ -440,8 +443,10 @@ export type Database = {
           tax_rate?: number | null
           updated_at?: string | null
           user_id?: string | null
+          vendor_id?: string | null
         }
         Update: {
+          cost_price?: number | null
           created_at?: string | null
           currency_code?: string
           description?: string | null
@@ -453,8 +458,156 @@ export type Database = {
           tax_rate?: number | null
           updated_at?: string | null
           user_id?: string | null
+          vendor_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_items: {
+        Row: {
+          description: string
+          id: string
+          line_total: number | null
+          product_id: string | null
+          purchase_order_id: string
+          quantity: number
+          tax_amount: number | null
+          tax_rate: number | null
+          unit_price: number
+        }
+        Insert: {
+          description: string
+          id?: string
+          line_total?: number | null
+          product_id?: string | null
+          purchase_order_id: string
+          quantity?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+        }
+        Update: {
+          description?: string
+          id?: string
+          line_total?: number | null
+          product_id?: string | null
+          purchase_order_id?: string
+          quantity?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string | null
+          currency_code: string | null
+          customer_id: string | null
+          delivery_address: string | null
+          discount_amount: number | null
+          expected_date: string | null
+          id: string
+          issue_date: string
+          notes: string | null
+          po_number: string
+          quotation_id: string | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          terms_conditions: string | null
+          total_amount: number | null
+          updated_at: string | null
+          user_id: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency_code?: string | null
+          customer_id?: string | null
+          delivery_address?: string | null
+          discount_amount?: number | null
+          expected_date?: string | null
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          po_number: string
+          quotation_id?: string | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          terms_conditions?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          user_id: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          currency_code?: string | null
+          customer_id?: string | null
+          delivery_address?: string | null
+          discount_amount?: number | null
+          expected_date?: string | null
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          po_number?: string
+          quotation_id?: string | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          terms_conditions?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          user_id?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quotation_items: {
         Row: {
@@ -627,15 +780,69 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_person: string | null
+          country: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          notes: string | null
+          phone: string | null
+          postal_code: string | null
+          state: string | null
+          tax_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          state?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          state?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      confirm_user: {
-        Args: { user_id: string }
-        Returns: undefined
-      }
+      confirm_user: { Args: { user_id: string }; Returns: undefined }
       create_company_profile: {
         Args: {
           p_default_currency: string
@@ -646,10 +853,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      disable_rls_for_company_profile: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      disable_rls_for_company_profile: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

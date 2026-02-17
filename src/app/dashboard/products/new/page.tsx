@@ -31,6 +31,14 @@ export default async function NewProductPage() {
 
   const defaultCurrency = currencies?.find((c) => c.is_default)?.code || "HKD";
 
+  // Get vendors for the current user
+  const { data: vendors } = await supabase
+    .from("vendors")
+    .select("id, name")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
   return (
     <>
       <DashboardNavbar />
@@ -107,6 +115,35 @@ export default async function NewProductPage() {
                     min="0"
                     placeholder="0.00"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cost_price">Cost Price</Label>
+                  <Input
+                    id="cost_price"
+                    name="cost_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vendor_id">Vendor</Label>
+                  <select
+                    id="vendor_id"
+                    name="vendor_id"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    defaultValue=""
+                  >
+                    <option value="">No vendor</option>
+                    {vendors?.map((vendor) => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-2">

@@ -59,7 +59,7 @@ export type InvoiceItems = {
 };
 
 export type Product = {
-  is_active: boolean; // 加這行
+  is_active: boolean;
   id: string;
   name: string;
   description: string;
@@ -67,6 +67,8 @@ export type Product = {
   price: number;
   tax_rate?: number;
   currency_code?: string;
+  vendor_id?: string | null;
+  cost_price?: number;
 };
 
 export type Payment = {
@@ -212,3 +214,65 @@ export interface QuotationSelected {
   status: string;
   customers?: QuotationCustomer | null;
 }
+
+export type Vendor = {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  tax_id?: string | null;
+  contact_person?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  po_number: string;
+  vendor_id: string;
+  customer_id?: string | null;
+  quotation_id?: string | null;
+  issue_date: string;
+  expected_date?: string;
+  currency_code: string;
+  status: string;
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  total_amount: number;
+  notes?: string;
+  terms_conditions?: string;
+  delivery_address?: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  purchase_order_items: PurchaseOrderItem[];
+  vendor?: Vendor;
+  vendors?: Vendor;
+  customer?: Customer;
+  customers?: Customer;
+  quotation?: Quotation;
+  quotations?: Quotation;
+};
+
+export type PurchaseOrderItem = {
+  id?: string;
+  purchase_order_id?: string;
+  product_id?: string | null;
+  product_name?: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate?: number;
+  tax_amount?: number;
+  line_total?: number;
+  product?: Product;
+};

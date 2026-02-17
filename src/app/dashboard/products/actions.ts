@@ -24,6 +24,10 @@ export async function createProductAction(formData: FormData) {
     ? parseFloat(formData.get("tax_rate") as string)
     : null;
   const is_active = formData.get("is_active") === "true";
+  const vendor_id = formData.get("vendor_id") as string;
+  const cost_price = formData.get("cost_price")
+    ? parseFloat(formData.get("cost_price") as string)
+    : 0;
 
   const { error } = await supabase.from("products").insert({
     name,
@@ -33,6 +37,8 @@ export async function createProductAction(formData: FormData) {
     currency_code,
     tax_rate,
     is_active,
+    vendor_id: vendor_id || null,
+    cost_price,
     user_id: user.id,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -68,6 +74,10 @@ export async function updateProductAction(formData: FormData) {
     ? parseFloat(formData.get("tax_rate") as string)
     : null;
   const is_active = formData.get("is_active") === "true";
+  const vendor_id = formData.get("vendor_id") as string;
+  const cost_price = formData.get("cost_price")
+    ? parseFloat(formData.get("cost_price") as string)
+    : 0;
 
   const { error } = await supabase
     .from("products")
@@ -79,6 +89,8 @@ export async function updateProductAction(formData: FormData) {
       currency_code,
       tax_rate,
       is_active,
+      vendor_id: vendor_id || null,
+      cost_price,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
