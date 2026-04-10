@@ -53,13 +53,33 @@ const sanitizePdfText = (text: string | null | undefined): string => {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/\t/g, '    ')
+    // Map common Unicode typographic characters to ASCII equivalents
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'") // curly single quotes -> '
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"') // curly double quotes -> "
+    .replace(/[\u2013\u2014\u2015]/g, '-')   // en-dash, em-dash -> -
+    .replace(/\u2026/g, '...')               // ellipsis -> ...
+    .replace(/\u2022/g, '*')                 // bullet -> *
+    .replace(/\u2019/g, "'")                 // right single quotation mark
+    .replace(/\u00A0/g, ' ')                 // non-breaking space -> space
+    .replace(/\u00AD/g, '-')                 // soft hyphen -> -
+    .replace(/[\u2010\u2011\u2012]/g, '-')   // various hyphens -> -
+    .replace(/\u00B7/g, '.')                 // middle dot -> .
+    .replace(/\u2039/g, '<')                 // single left angle quotation -> <
+    .replace(/\u203A/g, '>')                 // single right angle quotation -> >
+    .replace(/\u00AB/g, '<<')               // left double angle quotation
+    .replace(/\u00BB/g, '>>')               // right double angle quotation
+    // Remove ligatures
     .replace(/ﬀ/g, 'ff')
     .replace(/ﬁ/g, 'fi')
     .replace(/ﬂ/g, 'fl')
     .replace(/ﬃ/g, 'ffi')
     .replace(/ﬄ/g, 'ffl')
-    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '')
-    .replace(/[^\x00-\xFF]/g, '?');
+    // Remove WinAnsi undefined range
+    .replace(/[\x81\x8D\x8F\x90\x9D]/g, '')
+    // Replace any remaining non-Latin-1 characters with ?
+    .replace(/[^\x00-\xFF]/g, '?')
+    // Remove control characters except \n (\x0A)
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '');
 };
 
 const formatDatePdf = (dateString: string): string => {
