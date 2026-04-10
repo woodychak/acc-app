@@ -516,12 +516,20 @@ export const updateCustomerAction = async (formData: FormData) => {
   const id = formData.get("id") as string;
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
+  const phone = formData.get("phone") as string;
+  const tax_id = formData.get("tax_id") as string;
+  const address = formData.get("address") as string;
+  const city = formData.get("city") as string;
+  const state = formData.get("state") as string;
+  const postal_code = formData.get("postal_code") as string;
+  const country = formData.get("country") as string;
+  const notes = formData.get("notes") as string;
 
   const { error } = await supabase
     .from("customers")
-    .update({ name, email })
+    .update({ name, email, phone, tax_id, address, city, state, postal_code, country, notes })
     .eq("id", id)
-    .eq("created_by", user.id);
+    .eq("user_id", user.id);
 
   if (error) {
     throw new Error(error.message);
