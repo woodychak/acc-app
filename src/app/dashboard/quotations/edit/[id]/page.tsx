@@ -36,6 +36,7 @@ export default function EditQuotationPage() {
   const params = useParams();
   const quotationId = params.id as string;
   const formRef = useRef(null);
+  const nextItemId = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -112,8 +113,8 @@ export default function EditQuotationPage() {
 
       // Convert quotation items to the format expected by the form
       if (quotationData.quotation_items && quotationData.quotation_items.length > 0) {
-        const items = quotationData.quotation_items.map((item: any, index: number) => ({
-          id: index,
+        const items = quotationData.quotation_items.map((item: any) => ({
+          id: nextItemId.current++,
           product_id: item.product_id || "",
           product_name: "", // Will be populated from products if needed
           description: item.description || "",
@@ -124,7 +125,7 @@ export default function EditQuotationPage() {
         setQuotationItems(items);
       } else {
         setQuotationItems([{
-          id: 0,
+          id: nextItemId.current++,
           product_id: "",
           product_name: "",
           description: "",
@@ -157,19 +158,16 @@ export default function EditQuotationPage() {
         
         // Populate product names for existing items
         if (quotationData.quotation_items && quotationData.quotation_items.length > 0) {
-          const updatedItems = quotationData.quotation_items.map((item: any, index: number) => {
-            const product = productsData.find(p => p.id === item.product_id);
-            return {
-              id: index,
-              product_id: item.product_id || "",
-              product_name: product ? product.name : "",
-              description: item.description || "",
-              quantity: item.quantity || 1,
-              unit_price: item.unit_price || 0,
-              tax_rate: item.tax_rate || 0,
-            };
-          });
-          setQuotationItems(updatedItems);
+          setQuotationItems(prev =>
+            prev.map((item, index) => {
+              const dbItem = quotationData.quotation_items[index];
+              const product = dbItem ? productsData.find((p: Product) => p.id === dbItem.product_id) : null;
+              return {
+                ...item,
+                product_name: product ? product.name : "",
+              };
+            })
+          );
         }
       }
 
@@ -233,7 +231,7 @@ export default function EditQuotationPage() {
     setQuotationItems([
       ...quotationItems,
       {
-        id: quotationItems.length,
+        id: nextItemId.current++,
         product_id: "",
         product_name: "",
         description: "",

@@ -24,6 +24,7 @@ import {
   Coins,
   Truck,
   ClipboardList,
+  Landmark,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -74,6 +75,11 @@ export default function DashboardNavbar() {
       name: "Expenses",
       href: "/dashboard/expenses",
       icon: <Receipt className="h-4 w-4" />,
+    },
+    {
+      name: "Bank Import",
+      href: "/dashboard/bank-statement",
+      icon: <Landmark className="h-4 w-4" />,
     },
     {
       name: "Reports",

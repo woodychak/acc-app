@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_statement_imports: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          file_name: string
+          id: string
+          imported_count: number | null
+          month: number
+          status: string
+          total_transactions: number | null
+          updated_at: string | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          file_name: string
+          id?: string
+          imported_count?: number | null
+          month: number
+          status?: string
+          total_transactions?: number | null
+          updated_at?: string | null
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          file_name?: string
+          id?: string
+          imported_count?: number | null
+          month?: number
+          status?: string
+          total_transactions?: number | null
+          updated_at?: string | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       company_profile: {
         Row: {
           address: string | null
