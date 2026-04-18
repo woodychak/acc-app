@@ -288,10 +288,10 @@ export default function EditQuotationPage() {
 
     try {
       const hasValidItems = quotationItems.some(
-        (item) => item.description.trim() !== "",
+        (item) => item.description.trim() !== "" || item.product_name.trim() !== "",
       );
       if (!hasValidItems) {
-        setError("Please add at least one item with a description");
+        setError("Please add at least one item with a description or product name");
         setIsSubmitting(false);
         return;
       }
@@ -334,7 +334,7 @@ export default function EditQuotationPage() {
 
       // Insert updated quotation items
       const items = quotationItems
-        .filter(item => item.description.trim() !== "")
+        .filter(item => item.description.trim() !== "" || item.product_name.trim() !== "")
         .map((item) => {
           const lineTotal = item.quantity * item.unit_price;
           const taxAmount = lineTotal * (item.tax_rate / 100);
@@ -342,7 +342,7 @@ export default function EditQuotationPage() {
           return {
             quotation_id: quotationId,
             product_id: item.product_id && item.product_id.trim() !== "" ? item.product_id : null,
-            description: item.description,
+            description: item.description.trim() !== "" ? item.description : item.product_name,
             quantity: item.quantity,
             unit_price: item.unit_price,
             tax_rate: item.tax_rate,
