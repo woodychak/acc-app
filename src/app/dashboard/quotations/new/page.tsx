@@ -335,7 +335,7 @@ export default function NewQuotationPage() {
     const newItems = [...quotationItems];
     newItems[index].product_id = product.id;
     newItems[index].product_name = product.name;
-    newItems[index].description = product.description;
+    newItems[index].description = product.description || product.name;
     newItems[index].unit_price = product.price;
     newItems[index].tax_rate = product.tax_rate || 0;
     setQuotationItems(newItems);

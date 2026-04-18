@@ -164,7 +164,7 @@ export default function EditQuotationPage() {
               const product = dbItem ? productsData.find((p: Product) => p.id === dbItem.product_id) : null;
               return {
                 ...item,
-                product_name: product ? product.name : "",
+          product_name: product ? product.name : item.description,
               };
             })
           );
@@ -262,7 +262,7 @@ export default function EditQuotationPage() {
     const newItems = [...quotationItems];
     newItems[index].product_id = product.id;
     newItems[index].product_name = product.name;
-    newItems[index].description = product.description;
+    newItems[index].description = product.description || product.name;
     newItems[index].unit_price = product.price;
     newItems[index].tax_rate = product.tax_rate || 0;
     setQuotationItems(newItems);
